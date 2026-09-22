@@ -202,7 +202,40 @@ Confirm the cause with:
 
 **Confirmed live, 2026-09-21**: `MLAW_USE_SYSTEM_TRUST=1` fixes this for a real Python `httpx` client, not
 just non-Python fetchers. `truststore` is now a base dependency (`pyproject.toml`), not an optional extra to
-remember -- both `deploy/*.service` units set this env var already.
+remember.
+
+**Confirmed live, 2026-09-22, on Ubuntu (NUC deployment)**: `MLAW_USE_SYSTEM_TRUST=1` does NOT fix this on
+Linux, even though it fixed it on macOS. `truststore` delegates to the OS's own certificate verification --
+on macOS that's Apple's Security framework, which opportunistically fetches a missing intermediate via the
+certificate's AIA (Authority Information Access) URL and silently completes the chain. Linux's OpenSSL
+(what `truststore` sits on on Linux) does not do this AIA fetching, so the exact same incomplete-chain
+problem that macOS papers over is fully exposed there: `SSL: CERTIFICATE_VERIFY_FAILED: unable to get local
+issuer certificate`. **On Linux, use `MLAW_CA_BUNDLE` instead** (it's checked first regardless of
+`MLAW_USE_SYSTEM_TRUST`) -- build it once from the missing intermediate's own AIA URL:
+
+```bash
+# 1. Find the AIA "CA Issuers" URL for the cert the site actually presents:
+openssl s_client -connect www.legislature.mi.gov:443 -showcerts </dev/null 2>/dev/null \
+  | openssl x509 -noout -text | grep -A1 "CA Issuers"
+# 2026-09-22: http://cacerts.digicert.com/DigiCertGlobalG2TLSRSASHA2562020CA1-1.crt (DER-encoded)
+
+# 2. Download it and convert to PEM:
+curl -s http://cacerts.digicert.com/DigiCertGlobalG2TLSRSASHA2562020CA1-1.crt -o /tmp/intermediate.der
+openssl x509 -inform DER -in /tmp/intermediate.der -outform PEM -out /tmp/intermediate.pem
+
+# 3. Append it to certifi's bundle to make a combined trust bundle:
+CERTIFI_BUNDLE=$(/opt/michigan-law-mcp/.venv/bin/python3 -c "import certifi; print(certifi.where())")
+sudo mkdir -p /etc/mlaw
+sudo bash -c "cat '$CERTIFI_BUNDLE' /tmp/intermediate.pem > /etc/mlaw/ca-bundle.pem"
+
+# 4. Point the crawler at it:
+export MLAW_CA_BUNDLE=/etc/mlaw/ca-bundle.pem
+```
+
+DigiCert's intermediate doesn't rotate often, but if the server's issuer ever changes, redo step 1 to find
+the new AIA URL. Both `deploy/*.service` units set `MLAW_CA_BUNDLE=/etc/mlaw/ca-bundle.pem` for this reason
+-- a Linux deploy must build that file once (steps above) before the first run; `MLAW_USE_SYSTEM_TRUST=1` is
+left in place too as a harmless no-op fallback (macOS deployments still get real benefit from it).
 
 ## Tools
 

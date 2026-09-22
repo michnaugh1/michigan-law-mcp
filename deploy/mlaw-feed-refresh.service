@@ -12,16 +12,20 @@ User=mlaw
 WorkingDirectory=/opt/michigan-law-mcp
 Environment=MLAW_DB=/var/lib/mlaw/mlaw.sqlite3
 Environment=MLAW_USER_AGENT=michigan-law-mcp/0.1 (+mailto:mike@thenorthcoastlegal.com)
-# Confirmed live 2026-09-21, both required for this to work against the real site at all:
+# Confirmed live 2026-09-21/22, all required for this to work against the real site at all:
 # - MLAW_ROBOTS_ERROR_OK=1: legislature.mi.gov doesn't serve robots.txt (see docs/lsb-reply-2026-09-21.md);
 #   without this the feed fetch fails closed on the very first request. It hangs rather than erroring (0
 #   bytes, confirmed independently with curl), but that's now bounded to 15s (PoliteClient's own
 #   robots_timeout default) instead of burning this unit's full request timeout every single hour.
-# - MLAW_USE_SYSTEM_TRUST=1: legislature.mi.gov's certificate chain is incomplete; this uses the OS trust
-#   store (via the truststore package, a base dependency) instead of the bundled default. See README's TLS
-#   section.
+# - legislature.mi.gov's certificate chain is incomplete (no intermediate sent). MLAW_USE_SYSTEM_TRUST=1
+#   alone fixes this on macOS (AIA fetching) but NOT on Linux (confirmed live 2026-09-22 on the Ubuntu NUC
+#   deploy -- no AIA fetching there, same SSL: CERTIFICATE_VERIFY_FAILED as without it). MLAW_CA_BUNDLE is
+#   checked first and is what actually works here; see README's TLS section for how /etc/mlaw/ca-bundle.pem
+#   is built (must exist before this unit's first run). MLAW_USE_SYSTEM_TRUST=1 is kept too as a harmless
+#   fallback for non-Linux deploys.
 Environment=MLAW_ROBOTS_ERROR_OK=1
 Environment=MLAW_USE_SYSTEM_TRUST=1
+Environment=MLAW_CA_BUNDLE=/etc/mlaw/ca-bundle.pem
 # --refresh-web fetches only the chapters the feed actually flagged, live, via MclXmlWebSource -- the
 # nightly mlaw-ingest.service (mcl-xml-web, unrestricted) is the full-crawl safety net underneath this, in
 # case a change is somehow missed here. See refresh.py and README's "Feed-driven refresh" section.

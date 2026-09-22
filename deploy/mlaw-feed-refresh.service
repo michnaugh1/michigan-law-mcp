@@ -11,7 +11,13 @@ TimeoutStartSec=900
 User=mlaw
 WorkingDirectory=/opt/michigan-law-mcp
 Environment=MLAW_DB=/var/lib/mlaw/mlaw.sqlite3
-Environment=MLAW_USER_AGENT=michigan-law-mcp/0.1 (+mailto:mike@thenorthcoastlegal.com)
+# Must be quoted as a whole -- confirmed live 2026-09-22 on the Ubuntu NUC deploy: systemd's Environment=
+# parser splits on whitespace unless the value is quoted, so the unquoted form silently truncated this to
+# "michigan-law-mcp/0.1" and dropped "(+mailto:...)" with a logged "Invalid environment assignment,
+# ignoring: (+mai..." -- meaning the crawler was identifying itself to legislature.mi.gov without the
+# contact address the LSB was told it would send (see docs/lsb-reply-2026-09-21.md). This unit was
+# committed well before it was actually run under real systemd, so nothing caught this until now.
+Environment="MLAW_USER_AGENT=michigan-law-mcp/0.1 (+mailto:mike@thenorthcoastlegal.com)"
 # Confirmed live 2026-09-21/22, all required for this to work against the real site at all:
 # - MLAW_ROBOTS_ERROR_OK=1: legislature.mi.gov doesn't serve robots.txt (see docs/lsb-reply-2026-09-21.md);
 #   without this the feed fetch fails closed on the very first request. It hangs rather than erroring (0

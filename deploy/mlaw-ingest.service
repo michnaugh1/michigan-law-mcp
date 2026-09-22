@@ -1,0 +1,29 @@
+[Unit]
+Description=Michigan law MCP: nightly full crawl (safety net underneath the hourly feed-driven refresh, see mlaw-feed-refresh.timer)
+After=network-online.target
+
+[Service]
+Type=oneshot
+# No default TimeoutStartSec would mean systemd's own default (90s) kills this before a 241-chapter/480MB
+# crawl (~8+ min of requests alone, before transfer time) can possibly finish -- confirmed 2026-09-21 that
+# this matters for real, not just in theory (see mlaw-feed-refresh.service's own note on the same mistake).
+TimeoutStartSec=3600
+User=mlaw
+WorkingDirectory=/opt/michigan-law-mcp
+Environment=MLAW_DB=/var/lib/mlaw/mlaw.sqlite3
+Environment=MLAW_USER_AGENT=michigan-law-mcp/0.1 (+mailto:mike@thenorthcoastlegal.com)
+# Confirmed live 2026-09-21, both required for this to work against the real site at all:
+# - MLAW_ROBOTS_ERROR_OK=1: legislature.mi.gov doesn't serve robots.txt (see docs/lsb-reply-2026-09-21.md);
+#   without this the crawl fails closed. It hangs rather than erroring, but that's now bounded to 15s
+#   (PoliteClient's own robots_timeout default), not this unit's problem to work around.
+# - MLAW_USE_SYSTEM_TRUST=1: legislature.mi.gov's certificate chain is incomplete; this uses the OS trust
+#   store (via the truststore package, a base dependency) instead of the bundled default. See README's TLS
+#   section.
+Environment=MLAW_ROBOTS_ERROR_OK=1
+Environment=MLAW_USE_SYSTEM_TRUST=1
+# mcl-xml-web crawls every chapter from the Legislature's own machine-readable XML
+# (documents/mcl/Chapter N.xml) via the directory listing at documents/mcl/ -- no chapter list given, so
+# nothing is restricted by _KNOWN_MULTI_CHAPTER_FILES (that only matters for an explicit partial request,
+# which the hourly feed-refresh unit makes, not this one). A crawl that sees under 90% of previously active
+# documents aborts and changes nothing (see README "How it stays trustworthy").
+ExecStart=/opt/michigan-law-mcp/.venv/bin/mlaw ingest --source mcl-xml-web

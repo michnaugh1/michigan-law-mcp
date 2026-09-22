@@ -1,0 +1,15 @@
+[Unit]
+Description=Michigan law MCP server (HTTP)
+After=network-online.target
+
+[Service]
+User=mlaw
+WorkingDirectory=/opt/michigan-law-mcp
+Environment=MLAW_DB=/var/lib/mlaw/mlaw.sqlite3
+# /etc/mlaw.env holds MLAW_BEARER_TOKEN=... and MLAW_ALLOWED_HOSTS=law.example.com
+EnvironmentFile=/etc/mlaw.env
+ExecStart=/opt/michigan-law-mcp/.venv/bin/mlaw serve --transport http --host 127.0.0.1 --port 8000
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

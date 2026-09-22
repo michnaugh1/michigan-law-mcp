@@ -1,0 +1,4 @@
+# TLS and reverse proxy in front of the MCP server.
+law.example.com {
+    reverse_proxy 127.0.0.1:8000
+}

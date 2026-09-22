@@ -1,0 +1,85 @@
+{
+  "source": "mcl",
+  "complete": true,
+  "documents": [
+    {
+      "citation": "MCL 750.83",
+      "text": "[FIXTURE] AMENDED text of the fixture assault-type section. Not real law.",
+      "catchline": "Fixture assault section",
+      "chapter": "750",
+      "history_note": "1931 PA 328, Eff. Sept. 1, 1931; Am. 2018 PA 1 (fixture); Am. 2026 PA 50 (fixture).",
+      "status": "active",
+      "act_citation": "1931 PA 328",
+      "act_name": "Michigan penal code (fixture)",
+      "url": "https://example.invalid/fixture/MCL-750.83"
+    },
+    {
+      "citation": "MCL 750.84",
+      "text": "[FIXTURE] Fixture text referring to section 83, MCL 750.83, and to 1931 PA 328, and to MCL 750.520b to 750.520e, and to MCR 6.110 and MRE 404(b).",
+      "catchline": "Fixture related section",
+      "chapter": "750",
+      "history_note": "",
+      "status": "active",
+      "act_citation": "1931 PA 328",
+      "act_name": "Michigan penal code (fixture)",
+      "url": "https://example.invalid/fixture/MCL-750.84"
+    },
+    {
+      "citation": "MCL 750.520b",
+      "text": "[FIXTURE] Fixture text about a sexual-conduct placeholder; see MCL 750.520e and MCL 750.83.",
+      "catchline": "Fixture CSC placeholder",
+      "chapter": "750",
+      "history_note": "",
+      "status": "active",
+      "act_citation": "1931 PA 328",
+      "act_name": "Michigan penal code (fixture)",
+      "url": "https://example.invalid/fixture/MCL-750.520b"
+    },
+    {
+      "citation": "MCL 750.520e",
+      "text": "[FIXTURE] Fixture fourth-degree placeholder text; compare MCL 750.520b(1)(a).",
+      "catchline": "Fixture CSC placeholder 4",
+      "chapter": "750",
+      "history_note": "",
+      "status": "active",
+      "act_citation": "1931 PA 328",
+      "act_name": "Michigan penal code (fixture)",
+      "url": "https://example.invalid/fixture/MCL-750.520e"
+    },
+    {
+      "citation": "MCL 257.627a",
+      "text": "[FIXTURE] Fixture vehicle code text about speed limits and Const 1963, art 1, § 17.",
+      "catchline": "Fixture speed section",
+      "chapter": "257",
+      "history_note": "",
+      "status": "active",
+      "act_citation": "1949 PA 300",
+      "act_name": "Michigan vehicle code (fixture)",
+      "url": "https://example.invalid/fixture/MCL-257.627a"
+    },
+    {
+      "citation": "MCL 750.85",
+      "text": "[FIXTURE] New fixture section that cites MCL 750.83 and 2026 PA 50.",
+      "catchline": "Fixture new section",
+      "chapter": "750",
+      "history_note": "",
+      "status": "active",
+      "act_citation": "1931 PA 328",
+      "act_name": "Michigan penal code (fixture)",
+      "url": "https://example.invalid/fixture/MCL-750.85"
+    }
+  ],
+  "public_acts": [
+    {
+      "year": 2026,
+      "number": 50,
+      "title": "Fixture amendatory act",
+      "effective_date": "2026-09-15",
+      "url": "https://example.invalid/fixture/2026-PA-50",
+      "affected_citations": [
+        "MCL 750.83",
+        "MCL 750.85"
+      ]
+    }
+  ]
+}

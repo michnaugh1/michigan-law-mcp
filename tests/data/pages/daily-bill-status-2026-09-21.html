@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <title>Daily Bill Status Report - Michigan Legislature</title>
+
+        <link rel="shortcut icon" href="https://www.legislature.mi.gov/images/favicon.png">
+
+        <link rel="stylesheet" href="Daily%20Bill%20Status%20Report%20-%20Michigan%20Legislature_files/bootstrap.min_9Ege.css">
+        <link rel="stylesheet" href="Daily%20Bill%20Status%20Report%20-%20Michigan%20Legislature_files/site_9Ege.css">
+        <link rel="stylesheet" href="Daily%20Bill%20Status%20Report%20-%20Michigan%20Legislature_files/forms_9Ege.css">
+
+            <link rel="stylesheet" href="Daily%20Bill%20Status%20Report%20-%20Michigan%20Legislature_files/light_9Ege.css">
+
+        <script src="Daily%20Bill%20Status%20Report%20-%20Michigan%20Legislature_files/jquery.min_9Ege.js"></script>
+        <script src="Daily%20Bill%20Status%20Report%20-%20Michigan%20Legislature_files/bootstrap.bundle.min_9Ege.js"></script>
+        <script src="Daily%20Bill%20Status%20Report%20-%20Michigan%20Legislature_files/site_9Ege.js"></script>
+
+        <script type="text/javascript">
+            let prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            let prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
+            let theme = "light";
+            let userSetTheme = "False";
+
+            if (navigator.cookieEnabled && userSetTheme == "False" && ((theme == "dark" && prefersLight) || (theme == "light" && prefersDark)))
+            {
+                window.location.href = "/Home/ToggleTheme?ReturnUrl=%2FBills%2FDailyReport%3FdateFrom%3D2026-09-01%26dateTo%3D2026-09-21";
+            }
+        </script>
+
+        <noscript b-99ebu3icm7="">
+            <style>
+                .collapsible+div {
+                    display: block;
+                }
+            </style>
+        </noscript>
+    </head>
+
+    <body>
+        <header b-99ebu3icm7="" style="display:unset; z-index:1000;">
+
+            <div b-99ebu3icm7="">
+                <a b-99ebu3icm7="" href="#main" class="skipLink">Skip to content</a>
+            </div>
+
+            <div b-99ebu3icm7="" class="banner">
+
+                <div b-99ebu3icm7="" class="banner-center">
+                    <h1 b-99ebu3icm7="">
+                        <a b-99ebu3icm7="" href="https://www.legislature.mi.gov/">Michigan Legislature</a>
+                    </h1>
+                    <div b-99ebu3icm7="" style="font-size:large">
+                        <span b-99ebu3icm7="" class="desktop">
+                            Michigan Compiled Laws Complete Through PA 91 of 2026
+                        </span>
+                        <span b-99ebu3icm7="" class="mobile">
+                            MCL Complete Through PA 91 of 2026
+                        </span>
+                    </div>
+                </div>
+                <div b-99ebu3icm7="" class="banner-bottom">
+                    <div b-99ebu3icm7="" class="banner-left">
+                        <span b-99ebu3icm7="" class="small desktop">
+                            Senate adjourned until Tuesday, September 22, 2026 10:00 AM
+                        </span>
+                        <span b-99ebu3icm7="" class="small mobile">
+                            Senate adjourned until 09/22/26 10:00 AM
+                        </span>
+                    </div>
+                    <div b-99ebu3icm7="" class="banner-right">
+                        <span b-99ebu3icm7="" class="small desktop">
+                            House adjourned until Tuesday, September 22, 2026 1:30 PM
+                        </span>
+                        <span b-99ebu3icm7="" class="small mobile">
+                            House adjourned until 09/22/26 1:30 PM
+                        </span>
+                    </div>
+                </div>
+
+            </div>
+
+            <nav b-99ebu3icm7="" class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark mb-3">
+                <div b-99ebu3icm7="" class="container-fluid">
+
+                    <button b-99ebu3icm7="" class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                        <span b-99ebu3icm7="" class="navbar-toggler-icon"></span>
+                    </button>
+
+                    <div b-99ebu3icm7="" class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                        <ul b-99ebu3icm7="" class="navbar-nav flex-grow-1">
+                            <li b-99ebu3icm7="" class="nav-item">
+                                <a class="nav-link text-light" href="https://www.legislature.mi.gov/">Home</a>
+                            </li>
+
+                            <li b-99ebu3icm7="" class="nav-item dropdown">
+                                <a b-99ebu3icm7="" class="nav-link text-light dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">Legislature</a>
+                                <ul b-99ebu3icm7="" class="dropdown-menu">
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Search/LegDocSearch">Legislative Document Search</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Bills">Bills</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Bills/Resolutions">Resolutions</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Bills/JointResolutions">Joint Resolutions</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Bills/ConcurrentResolutions">Concurrent Resolutions</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Legislature/Calendars">Calendars</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Committees">Committees</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Committees/CBRs">Committee Bill Records</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Committees/Meetings">Committee Meetings</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Bills/Initiatives">Initiatives/Alternative Measures</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Legislature/Journals">Journals</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Legislature/Legislators">Legislators</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Laws/PublicActs">Public and Local Acts (Signed Bills)</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Legislature/RulesAndSchedules">Rules and Schedules</a></li>
+                                </ul>
+                            </li>
+
+                            <li b-99ebu3icm7="" class="nav-item dropdown">
+                                <a b-99ebu3icm7="" class="nav-link text-light dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">Laws</a>
+                                <ul b-99ebu3icm7="" class="dropdown-menu">
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Laws/MCLSearch">MCL Search</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Laws/PAMCLSearch">Public Act MCL Search</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Laws/Constitution">Michigan Constitution</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Laws/ChapterIndex">MCL Chapter Index</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Laws/ExecutiveOrders">Executive Orders</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Laws/ExecutiveReorgs">Executive Reorganization Orders</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Laws/MCLTablesAndAppropriationActs">MCL Tables and Appropriation Acts</a></li>
+                                </ul>
+                            </li>
+
+                            <li b-99ebu3icm7="" class="nav-item dropdown">
+                                <a b-99ebu3icm7="" class="nav-link text-light dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">More</a>
+                                <ul b-99ebu3icm7="" class="dropdown-menu">
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Legislature/Archives">Archives</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Legislature/HistoricalDocuments">Historical Documents</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Home/ListServerSignUp">Committee Meeting Notifications</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Legislature/Directory">Legislative Directory</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Legislature/MichiganManuals">Michigan Manuals</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Home/Publications">Publications</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Home/RelatedSites">Related Sites</a></li>
+                                    <li b-99ebu3icm7=""><a class="dropdown-item" href="https://www.legislature.mi.gov/Home/Help">Help</a></li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                        <div b-99ebu3icm7="" class="d-flex">
+                            <ul b-99ebu3icm7="" class="navbar-nav flex-grow-1">
+
+                                <li b-99ebu3icm7="" class="nav-item">
+                                        <a b-99ebu3icm7="" class="nav-link text-light" title="Toggle Theme" href="https://www.legislature.mi.gov/Home/ToggleTheme?ReturnUrl=%2FBills%2FDailyReport%3FdateFrom%3D2026-09-01%26dateTo%3D2026-09-21"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="#FFFFFF" alt="Toggle Theme" title="" class="bi bi-brightness-high-fill" viewBox="0 0 16 16">  <path d="M12 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708"></path></svg></a>
+                            </li>
+
+                                    <li b-99ebu3icm7="" class="nav-item">
+                                            <a b-99ebu3icm7="" class="nav-link text-light" href="https://www.legislature.mi.gov/Account/SignUp?ReturnUrl=%2FBills%2FDailyReport%3FdateFrom%3D2026-09-01%26dateTo%3D2026-09-21">Sign Up</a>
+                                    </li>
+                                    <li b-99ebu3icm7="" class="nav-item">
+                                            <a b-99ebu3icm7="" class="nav-link text-light" href="https://www.legislature.mi.gov/Account/LogIn?ReturnUrl=%2FBills%2FDailyReport%3FdateFrom%3D2026-09-01%26dateTo%3D2026-09-21">Log In</a>
+                                    </li>
+                            </ul>
+                        </div>
+
+                    </div>
+
+                </div>
+            </nav>
+        </header>
+
+        <main b-99ebu3icm7="" id="main" class="container pb-3">
+            
+
+<h1>Daily Bill Status Report</h1>
+
+<div>
+    <form method="get" action="">
+        <span>
+            <label>Date Range from <input name="dateFrom" type="date" value="2026-09-01"></label> <label>to (optional) <input name="dateTo" type="date" value="2026-09-21"></label>
+        </span>
+        <button class="btn btn-primary">Search by Date</button>
+    </form>
+</div>
+
+<h3>Introduced</h3>
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th style="min-width:15ch;">Document</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SCR-0015">SCR 0015 of 2026</a></td>
+                        <td>
+                            A concurrent resolution for the adoption of the Joint Rules of the Senate and House of Representatives.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SR-0136">SR 0136 of 2026</a></td>
+                        <td>
+                            A resolution to designate September 2026 as Childhood Cancer Awareness Month.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SR-0137">SR 0137 of 2026</a></td>
+                        <td>
+                            A resolution to recognize October 8, 2026, as APEX Day.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SR-0138">SR 0138 of 2026</a></td>
+                        <td>
+                            A resolution to recognize the 70th anniversary of the General Motors Global Technical Center in Warren.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SR-0139">SR 0139 of 2026</a></td>
+                        <td>
+                            A resolution to urge the Michigan Department of Agriculture and Rural Development to take a balanced approach to protecting Michigan’s pollinator populations while responsibly managing invasive spotted knapweed.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SR-0140">SR 0140 of 2026</a></td>
+                        <td>
+                            A resolution to recognize September 21, 2026, as Maltese American Heritage Day.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1048">SB 1048 of 2026</a></td>
+                        <td>
+                            Public utilities: electric utilities; project labor agreements and prevailing wage and fringe benefit rates; require for certain data center contracts. Amends 1939 PA 3 (MCL 460.1 - 460.11) by adding sec. 10ii.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1050">SB 1050 of 2026</a></td>
+                        <td>
+                            Businesses: other; community benefit agreements; require certain data centers to be subject to. Creates new act. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1142">SB 1142 of 2026</a></td>
+                        <td>
+                            Human services: medical services; coverage for prosthetics; expand. Amends sec. 109 of 1939 PA 280 (MCL 400.109). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1143">SB 1143 of 2026</a></td>
+                        <td>
+                            Highways: memorial; portion of US-2; designate as the "Trooper Carl Lindberg Memorial Highway". Amends 2001 PA 142 (MCL 250.1001 - 250.2092) by adding sec. 8d. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1144">SB 1144 of 2026</a></td>
+                        <td>
+                            Children: child abuse or child neglect; use of child advocacy centers in sexual exploitation cases; permit. Amends secs. 2, 3, 7j, 7l, 8 &amp; 8b of 1975 PA 238 (MCL 722.622 et seq.)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1145">SB 1145 of 2026</a></td>
+                        <td>
+                            State agencies (proposed): authorities; travel commission and travel bureau; reestablish. Amends secs. 2 &amp; 2a of 1945 PA 106 (MCL 2.102 &amp; 2.102a). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1146">SB 1146 of 2026</a></td>
+                        <td>
+                            Liquor: licenses; issuance of resort licenses; modify. Amends sec. 531 of 1998 PA 58 (MCL 436.1531). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1147">SB 1147 of 2026</a></td>
+                        <td>
+                            Education: curriculum; certain prohibitions concerning curriculum; provide for. Amends 1976 PA 451 (MCL 380.1 - 380.1852) by adding sec. 1167. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1148">SB 1148 of 2026</a></td>
+                        <td>
+                            Construction: other; lead-based paint regulations for the renovation, repair, or painting of certain buildings; provide for. Amends 1978 PA 368 (MCL 333.1101 - 333.25211) by adding pt. 54d.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1149">SB 1149 of 2026</a></td>
+                        <td>
+                            Insurance: health insurers; physical therapy requirement for lumbar epidural steroid injection; eliminate. Amends 1956 PA 218 (MCL 500.100 - 500.8302) by adding sec. 3406ww. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1150">SB 1150 of 2026</a></td>
+                        <td>
+                            Weapons: firearms; regulations regarding silencers, shotguns, and short-barreled rifles; eliminate. Amends secs. 222, 224 &amp; 231 of 1931 PA 328 (MCL 750.222 et seq.) &amp; repeals sec. 224b of 1931 PA 328 (MCL 750.224b.)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1151">SB 1151 of 2026</a></td>
+                        <td>
+                            Weapons: firearms; sentencing guidelines; update. Amends sec. 16m, ch. XVII of 1927 PA 175 (MCL 777.16m).  TIE BAR WITH: SB 1150'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1152">SB 1152 of 2026</a></td>
+                        <td>
+                            Human services: medical services; basic health program for certain low-income residents; establish. Amends 1939 PA 280 (MCL 400.1 - 400.119b) by adding secs. 112l, 112m, 112n, 112o &amp; 112p. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1153">SB 1153 of 2026</a></td>
+                        <td>
+                            Insurance: no-fault; denial of claim based on failure to list all household members on policy; prohibit. Amends 1956 PA 218 (MCL 500.100 - 500.8302) by adding sec. 2116c.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1154">SB 1154 of 2026</a></td>
+                        <td>
+                            Insurance: automobile; requirements to deem a rate excessive; modify. Amends sec. 2109 of 1956 PA 218 (MCL 500.2109). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1155">SB 1155 of 2026</a></td>
+                        <td>
+                            Corporate income tax: business income; deductions for certain broadband expansion grants; provide for. Amends secs. 623 &amp; 815 of 1967 PA 281 (MCL 206.623 &amp; 206.815).   TIE BAR WITH: SB 0209'25
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1156">SB 1156 of 2026</a></td>
+                        <td>
+                            Vehicles: bicycles; regulations for use of e-bikes by minors; provide for. Amends sec. 662a of 1949 PA 300 (MCL 257.662a). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1157">SB 1157 of 2026</a></td>
+                        <td>
+                            Human services: medical services; coverage for cranial hair prosthesis; provide for under certain circumstances. Amends sec. 109 of 1939 PA 280 (MCL 400.109). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1158">SB 1158 of 2026</a></td>
+                        <td>
+                            Insurance: health insurers; coverage for cranial hair prosthesis; provide for under certain circumstances. Amends 1956 PA 218 (MCL 500.100 - 500.8302) by adding sec. 3406uu. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1159">SB 1159 of 2026</a></td>
+                        <td>
+                            Insurance: health insurers; coverage for examinations and medications related to breast cancer; provide for. Amends sec. 3406d of 1956 PA 218 (MCL 500.3406d). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1160">SB 1160 of 2026</a></td>
+                        <td>
+                            Higher education: financial aid; access to Michigan achievement scholarship; expand. Amends sec. 248 of 1979 PA 94 (MCL 388.1848). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1161">SB 1161 of 2026</a></td>
+                        <td>
+                            Children: protection; safe delivery of newborns law; modify definition of newborn and allow surrender to a newborn safety device. Amends secs. 1, 2, 3, 5, 7, 10, 17 &amp; 20, ch. XII of 1939 PA 288 (MCL 712.1 et seq.) &amp; adds sec. 3a to ch. XII.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1162">SB 1162 of 2026</a></td>
+                        <td>
+                            Children: protection; reference in Michigan penal code to surrender of a newborn under the newborn safe delivery law; revise. Amends sec. 135 of 1931 PA 328 (MCL 750.135).   TIE BAR WITH: SB 1161'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1163">SB 1163 of 2026</a></td>
+                        <td>
+                            Children: protection; reporting death of a newborn after surrender to a newborn safety device; expand. Amends sec. 2843 of 1978 PA 368 (MCL 333.2843).    TIE BAR WITH: SB 1161'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1164">SB 1164 of 2026</a></td>
+                        <td>
+                            Aeronautics: unmanned aircraft systems; counter-unmanned aircraft systems strategy and coordinating council; establish. Creates new act. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1165">SB 1165 of 2026</a></td>
+                        <td>
+                            Aeronautics: unmanned aircraft systems; adoption of federal safety regulations; provide for. Creates new act. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1166">SB 1166 of 2026</a></td>
+                        <td>
+                            Animals: research facilities; guidelines for adoptable animals; provide for. Amends secs. 1 &amp; 8a of 1969 PA 224 (MCL 287.381 &amp; 287.388a). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1167">SB 1167 of 2026</a></td>
+                        <td>
+                            Crimes: other; summoning law enforcement to residence through intentional false report of a serious law enforcement emergency; prohibit, and provide penalties. Amends sec. 316 of 1931 PA 328 (MCL 750.316) &amp; adds sec. 410d. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1168">SB 1168 of 2026</a></td>
+                        <td>
+                            Criminal procedure: sentencing guidelines; sentencing guidelines for summoning law enforcement to residence through intentional false report of a serious law enforcement emergency; provide for. Amends sec. 16t, ch. XVII of 1927 PA 175 (MCL 777.16t).   TIE BAR WITH: SB 1167'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1169">SB 1169 of 2026</a></td>
+                        <td>
+                            Courts: judges; circuit court judgeship to Ingham County; increase. Amends sec. 531 of 1961 PA 236 (MCL 600.531). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1170">SB 1170 of 2026</a></td>
+                        <td>
+                            Public utilities: consumer services; eligibility for utility power outage credits; provide for. Amends 1939 PA 3 (MCL 460.1 - 460.11) by adding sec. 9g.  TIE BAR WITH: SB 1171'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1171">SB 1171 of 2026</a></td>
+                        <td>
+                            Public utilities: consumer services; eligibility for utility power outage credits; provide for. Amends 1939 PA 3 (MCL 460.1 - 460.11) by adding sec. 9f.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1172">SB 1172 of 2026</a></td>
+                        <td>
+                            Public utilities: consumer services; eligibility for utility power outage credits; provide for. Amends 1939 PA 3 (MCL 460.1 - 460.11) by adding sec. 9e.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1173">SB 1173 of 2026</a></td>
+                        <td>
+                            Public utilities: consumer services; prohibition for an electric utility to reclaim revenue they were required to pay in service outage credits; provide for. Amends sec. 6a of 1939 PA 3 (MCL 460.6a). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1174">SB 1174 of 2026</a></td>
+                        <td>
+                            Public utilities: consumer services; disclosure on electric utility bills of the number of power outages that occurred within that billing cycle; require. Amends 1939 PA 3 (MCL 460.1 - 460.11) by adding sec. 9e.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1175">SB 1175 of 2026</a></td>
+                        <td>
+                            Public utilities: electric utilities; distribution grid plans created by electric utilities; require. Amends sec. 6a of 1939 PA 3 (MCL 460.6a). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1176">SB 1176 of 2026</a></td>
+                        <td>
+                            State agencies (proposed): boards and commissions; Michigan defense and readiness commission and fund; create, and make appropriation to the fund. Creates new act. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1177">SB 1177 of 2026</a></td>
+                        <td>
+                            Trade: consumer goods and services; manufacture, sale, or distribution of medical solution containers PVC or added DEHP; prohibit. Amends sec. 3 of 1976 PA 331 (MCL 445.903) &amp; adds sec. 3p. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1178">SB 1178 of 2026</a></td>
+                        <td>
+                            Courts: other; delinquent collections program; establish. Amends title &amp; secs. 1, 3 &amp; 4 of 1993 PA 316 (MCL 12.131 et seq.) &amp; adds sec. 7a. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1179">SB 1179 of 2026</a></td>
+                        <td>
+                            Energy: other; reporting requirements for data centers; provide for. Creates new act. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6323">HB 6323 of 2026</a></td>
+                        <td>
+                            Health occupations: health professionals; competency-based assessment examination for licensure or registration; require under certain circumstances. Amends secs. 16177 &amp; 16178 of 1978 PA 368 (MCL 333.16177 &amp; 333.16178) 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6324">HB 6324 of 2026</a></td>
+                        <td>
+                            Drains: other; certain disclosures regarding drain projects; require. Amends secs. 71 &amp; 121 of 1956 PA 40 (MCL 280.71 &amp; 280.121). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6325">HB 6325 of 2026</a></td>
+                        <td>
+                            Drains: maintenance and improvement; regulations regarding replacement of drain pipes; modify. Amends sec. 196 of 1956 PA 40 (MCL 280.196). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6326">HB 6326 of 2026</a></td>
+                        <td>
+                            Health occupations: health professionals; use of advertisements, name tags, and making other representations that contain false or misleading information; prohibit. Amends sec. 16221 of 1978 PA 368 (MCL 333.16221) &amp; adds sec. 16260. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6327">HB 6327 of 2026</a></td>
+                        <td>
+                            Traffic control: driver license; digital driver license; provide for. Amends secs. 25, 307, 310, 311, 312, 314 &amp; 901a of 1949 PA 300 (MCL 257.25 et seq.) &amp; adds secs. 30d, 310a &amp; 811c. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6328">HB 6328 of 2026</a></td>
+                        <td>
+                            Traffic control: driver license; citizenship mark; require. Amends sec. 4 of 2008 PA 23 (MCL 28.304).   TIE BAR WITH: HB 6329'26, HB 6330'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6329">HB 6329 of 2026</a></td>
+                        <td>
+                            Traffic control: driver license; citizenship mark; require. Amends sec. 310 of 1949 PA 300 (MCL 257.310).   TIE BAR WITH: HB 6328'26, HB 6330'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6330">HB 6330 of 2026</a></td>
+                        <td>
+                            State: identification cards; citizenship mark; require. Amends sec. 2 of 1972 PA 222 (MCL 28.292).   TIE BAR WITH: HB 6328'26, HB 6329'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6331">HB 6331 of 2026</a></td>
+                        <td>
+                            Vehicles: registration plates; Corvette registration plate; provide for. Amends 1949 PA 300 (MCL 257.1 - 257.923) by adding sec. 803v. 
+                        </td>
+                    </tr>
+        </tbody>
+    </table>
+
+<h3>Passed by Chamber</h3>
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th style="min-width:15ch;">Document</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2025-HB-4813">HB 4813 of 2025</a></td>
+                        <td>
+                            Education: other; interstate compact on educational opportunity for military children; modify. Amends secs. 1 &amp; 2 of 2008 PA 160 (MCL 3.1041 &amp; 3.1042). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2025-HB-5109">HB 5109 of 2025</a></td>
+                        <td>
+                            Vehicles: other; allocation to transportation administration collection fund; modify. Amends sec. 810b of 1949 PA 300 (MCL 257.810b). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2025-HB-5356">HB 5356 of 2025</a></td>
+                        <td>
+                            Vehicles: title; requirements for transfer of title by a dealer; provide for. Amends 14, 41a, 78, 217, 217c, 233, 233a, 233b, 234, 238, 239, 240, 248, 248a, 248j, 249, 250, 258, 801b, 806 &amp; 810a of 1949 PA 300 (MCL 257.14 et seq.) &amp; adds sec. 9b. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2025-HB-5359">HB 5359 of 2025</a></td>
+                        <td>
+                            Individual income tax: credit; credit for certain motor fuel retail dealers; provide for. Amends 1967 PA 281 (MCL 206.1 - 206.847) by adding secs. 279 &amp; 679.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-0885">SB 0885 of 2026</a></td>
+                        <td>
+                            Criminal procedure: indigent defense; parent and child legal representation commission; create. Creates new act. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1013">SB 1013 of 2026</a></td>
+                        <td>
+                            Insurance: no-fault; price optimization use in determining insurance rates; prohibit. Amends secs. 2109 &amp; 2119 of 1956 PA 218 (MCL 500.2109 &amp; 500.2119). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1133">SB 1133 of 2026</a></td>
+                        <td>
+                            Retirement: state police; membership in the retirement system of certain law enforcement officers first hired after certain date; provide for, and allow for purchasing service credit for certain law enforcement officers' service under the state employees' retirement system. Amends secs. 3 &amp; 4 of 1986 PA 182 (MCL 38.1603 &amp; 38.1604).   TIE BAR WITH: SB 1134'26, SB 1135'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1134">SB 1134 of 2026</a></td>
+                        <td>
+                            Retirement: state employees; election process to transfer certain law enforcement officers to the Michigan state police retirement system; provide for. Amends sec. 55 of 1943 PA 240 (MCL 38.55) &amp; adds secs. 50b, 50c, 50d, 64a, 64b &amp; 64c.   TIE BAR WITH: SB 1133'26, SB 1135'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1135">SB 1135 of 2026</a></td>
+                        <td>
+                            Retirement: state employees; membership in the retirement system of certain law enforcement officers first hired after certain date; provide for, and allow for purchasing service credit for certain law enforcement officers' service under the state employees' retirement system. Amends 1986 PA 182 (MCL 38.1601 - 38.1674) by adding secs. 24c, 24d, 24e &amp; 24f.   TIE BAR WITH: SB 1133'26, SB 1134'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1136">SB 1136 of 2026</a></td>
+                        <td>
+                            Public employees and officers: compensation and benefits; public employer contribution to medical benefit plan; modify. Amends title &amp; secs. 3, 4 &amp; 5 of 2011 PA 152 (MCL 15.563 et seq.) &amp; adds secs. 3a &amp; 4a. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1137">SB 1137 of 2026</a></td>
+                        <td>
+                            Civil procedure: execution; procedures for collection of judgments; revise. Amends &amp; adds (See bill). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1138">SB 1138 of 2026</a></td>
+                        <td>
+                            Civil procedure: bankruptcy; bankruptcy exemptions; modify. Amends sec. 5451 of 1961 PA 236 (MCL 600.5451). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1139">SB 1139 of 2026</a></td>
+                        <td>
+                            History and arts: other; history museum authorities act; create. Creates new act.   TIE BAR WITH: SB 1140'26, SB 1141'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1140">SB 1140 of 2026</a></td>
+                        <td>
+                            Economic development: brownfield redevelopment authority; brownfield redevelopment financing act; amend to exempt museum authorities. Amends sec. 2 of 1996 PA 381 (MCL 125.2652).   TIE BAR WITH: SB 1139'26, SB 1141'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1141">SB 1141 of 2026</a></td>
+                        <td>
+                            Economic development: tax increment financing; definition of tax increment revenues; exclude taxes levied under history museum authorities act. Amends secs. 201, 301, 402, 523, 603, 703 &amp; 803 of 2018 PA 57 (MCL 125.4201 et seq.).   TIE BAR WITH: SB 1139'26, SB 1140'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-5452">HB 5452 of 2026</a></td>
+                        <td>
+                            Criminal procedure: sentencing; sunset on certain costs that may be imposed upon criminal conviction; modify. Amends sec. 1k, ch. IX of 1927 PA 175 (MCL 769.1k). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-5482">HB 5482 of 2026</a></td>
+                        <td>
+                            State agencies (existing): generally; plans to correct audit recommendations; require notification to the legislature if the executive branch fails to prepare. Amends secs. 462 &amp; 487 of 1984 PA 431 (MCL 18.1462 &amp; 18.1487). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-5648">HB 5648 of 2026</a></td>
+                        <td>
+                            Education: graduation requirements; credit for working certain trades; provide for. Amends sec. 1278a of 1976 PA 451 (MCL 380.1278a) &amp; adds sec. 1279i. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-5803">HB 5803 of 2026</a></td>
+                        <td>
+                            Children: child care; child care licensing rules; exempt for certain centers operating preschool classrooms. Amends sec. 1 of 1973 PA 116 (MCL 722.111). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-5920">HB 5920 of 2026</a></td>
+                        <td>
+                            Legislature: legislative agencies; office of legislative corrections ombudsman; expand powers and duties. Amends secs. 1, 4 &amp; 5 of 1975 PA 46 (MCL 4.351 et seq.).   TIE BAR WITH: HB 5921'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-5921">HB 5921 of 2026</a></td>
+                        <td>
+                            Legislature: legislative agencies; office of legislative corrections ombudsman; expand powers and duties. Amends secs. 7, 11, 12, 13 &amp; 14 of 1975 PA 46 (MCL 4.357 et seq.).   TIE BAR WITH: HB 5920'26
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-5940">HB 5940 of 2026</a></td>
+                        <td>
+                            Public utilities: electric utilities; electronic transmission infrastructure; allow to use existing rights-of-way. Amends sec. 13 of 1925 PA 368 (MCL 247.183) &amp; adds sec. 13a. 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6126">HB 6126 of 2026</a></td>
+                        <td>
+                            Gaming: other; expenditures under the internet sports betting fund; modify. Amends secs. 15 &amp; 16 of 2019 PA 149 (MCL 432.415 &amp; 432.416) 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6127">HB 6127 of 2026</a></td>
+                        <td>
+                            Gaming: other; expenditures in the internet gaming fund; modify. Amends secs. 14 &amp; 16 of 2019 PA 152 (MCL 432.314 &amp; 432.316). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6130">HB 6130 of 2026</a></td>
+                        <td>
+                            Education: financing; Michigan trust fund act; modify. Amends sec. 12 of 2000 PA 489 (MCL 12.262). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6243">HB 6243 of 2026</a></td>
+                        <td>
+                            Property: land sales; prohibition of purchase of residential property by certain businesses; modify. Amends secs. 3 &amp; 7 of 2026 PA 32 (MCL 125.853 &amp; 1125.857). 
+                        </td>
+                    </tr>
+        </tbody>
+    </table>
+
+<h3>Enrolled</h3>
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th style="min-width:15ch;">Document</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2025-SB-0022">SB 0022 of 2025</a></td>
+                        <td>
+                            Housing: landlord and tenants; return of security deposit by electronic transfer; allow. Amends sec. 9 of 1972 PA 348 (MCL 554.609). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2025-SB-0373">SB 0373 of 2025</a></td>
+                        <td>
+                            Housing: landlord and tenants; limitations on fees charged to tenants; provide for. Amends sec. 3 of 1978 PA 454 (MCL 554.633). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2025-SB-0527">SB 0527 of 2025</a></td>
+                        <td>
+                            Civil procedure: foreclosure; public sale of property being foreclosed by advertisement; allow to be held virtually. Amends secs. 3208 &amp; 3212 of 1961 PA 236 (MCL 600.3208 &amp; 600.3212). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2025-SB-0569">SB 0569 of 2025</a></td>
+                        <td>
+                            Health facilities: other; fees related to nurse aide and medication aide training and permit programs; modify. Amends secs. 21919 &amp; 21920 of 1978 PA 368 (MCL 333.21919 &amp; 333.21920). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2025-SB-0729">SB 0729 of 2025</a></td>
+                        <td>
+                            State finance: authorities; outstanding obligations of the state building authority; provide exception to the limit of. Amends sec. 8 of 1964 PA 183 (MCL 830.418). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2025-HB-5109">HB 5109 of 2025</a></td>
+                        <td>
+                            Vehicles: other; allocation to transportation administration collection fund; modify. Amends sec. 810b of 1949 PA 300 (MCL 257.810b). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1013">SB 1013 of 2026</a></td>
+                        <td>
+                            Insurance: no-fault; price optimization use in determining insurance rates; prohibit. Amends secs. 2109 &amp; 2119 of 1956 PA 218 (MCL 500.2109 &amp; 500.2119). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SB-1052">SB 1052 of 2026</a></td>
+                        <td>
+                            Human services: medical services; definition of kickbacks or bribes; modify. Amends sec. 4 of 1977 PA 72 (MCL 400.604).
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-5482">HB 5482 of 2026</a></td>
+                        <td>
+                            State agencies (existing): generally; plans to correct audit recommendations; require notification to the legislature if the executive branch fails to prepare. Amends secs. 462 &amp; 487 of 1984 PA 431 (MCL 18.1462 &amp; 18.1487). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6126">HB 6126 of 2026</a></td>
+                        <td>
+                            Gaming: other; expenditures under the internet sports betting fund; modify. Amends secs. 15 &amp; 16 of 2019 PA 149 (MCL 432.415 &amp; 432.416) 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6127">HB 6127 of 2026</a></td>
+                        <td>
+                            Gaming: other; expenditures in the internet gaming fund; modify. Amends secs. 14 &amp; 16 of 2019 PA 152 (MCL 432.314 &amp; 432.316). 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-HB-6130">HB 6130 of 2026</a></td>
+                        <td>
+                            Education: financing; Michigan trust fund act; modify. Amends sec. 12 of 2000 PA 489 (MCL 12.262). 
+                        </td>
+                    </tr>
+        </tbody>
+    </table>
+
+<h3>Adopted</h3>
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th style="min-width:15ch;">Document</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SR-0136">SR 0136 of 2026</a></td>
+                        <td>
+                            A resolution to designate September 2026 as Childhood Cancer Awareness Month.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SR-0137">SR 0137 of 2026</a></td>
+                        <td>
+                            A resolution to recognize October 8, 2026, as APEX Day.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SR-0138">SR 0138 of 2026</a></td>
+                        <td>
+                            A resolution to recognize the 70th anniversary of the General Motors Global Technical Center in Warren.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SR-0139">SR 0139 of 2026</a></td>
+                        <td>
+                            A resolution to urge the Michigan Department of Agriculture and Rural Development to take a balanced approach to protecting Michigan’s pollinator populations while responsibly managing invasive spotted knapweed.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:15ex;"><a href="https://www.legislature.mi.gov/Home/GetObject?objectName=2026-SR-0140">SR 0140 of 2026</a></td>
+                        <td>
+                            A resolution to recognize September 21, 2026, as Maltese American Heritage Day.
+                        </td>
+                    </tr>
+        </tbody>
+    </table>
+
+        </main>
+
+        <footer b-99ebu3icm7="" class="border-top footer text-muted">
+            <div b-99ebu3icm7="" class="container text-center">
+                <div b-99ebu3icm7="" class="row" style="padding-top: 15px;">
+                    <div b-99ebu3icm7="" class="col-12">
+                        <div b-99ebu3icm7="">
+                            <a href="https://www.legislature.mi.gov/Home/AcceptableUse">Acceptable Use Policy</a>
+                            <span b-99ebu3icm7="" class="delim"></span>
+                            <a href="https://www.legislature.mi.gov/Home/Privacy">Privacy Policy</a>
+                            <span b-99ebu3icm7="" class="delim"></span>
+                            <a href="https://www.legislature.mi.gov/Home/DMCA">DMCA Policy</a>
+                            <span b-99ebu3icm7="" class="delim"></span>
+                            <a href="https://www.legislature.mi.gov/Home/CommentForm">Comment Form</a>
+                            <span b-99ebu3icm7="" class="delim"></span>
+                            <a href="https://www.legislature.mi.gov/Legislature/Directory">Legislative Directory</a>
+                            <span b-99ebu3icm7="" class="delim"></span>
+                            <a href="https://www.legislature.mi.gov/Home/Accessibility">Accessibility</a>
+                            <span b-99ebu3icm7="" class="delim"></span>
+                            <a href="https://www.legislature.mi.gov/Home/SiteMap">Site Map</a>
+                        </div>
+                    </div>
+                </div>
+                <div b-99ebu3icm7="" class="row" style="padding-bottom: 15px; padding-top: 10px;">
+                    <div b-99ebu3icm7="" class="col-12">
+                        <div b-99ebu3icm7="">
+                            <a b-99ebu3icm7="" href="https://www.legislature.mi.gov/documents/publications/RssFeeds/billupdate.xml"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#0264F7" class="bi bi-rss-fill" viewBox="0 0 16 16" alt="Bills Rss Feed" title="">  <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm1.5 2.5c5.523 0 10 4.477 10 10a1 1 0 1 1-2 0 8 8 0 0 0-8-8 1 1 0 0 1 0-2zm0 4a6 6 0 0 1 6 6 1 1 0 1 1-2 0 4 4 0 0 0-4-4 1 1 0 0 1 0-2zm.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"></path></svg> Bills</a>
+                            <span b-99ebu3icm7="" class="delim"></span><a b-99ebu3icm7="" href="https://www.legislature.mi.gov/documents/publications/RssFeeds/comschedule.xml"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#0264F7" class="bi bi-rss-fill" viewBox="0 0 16 16" alt="Meetings Rss Feed" title="">  <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm1.5 2.5c5.523 0 10 4.477 10 10a1 1 0 1 1-2 0 8 8 0 0 0-8-8 1 1 0 0 1 0-2zm0 4a6 6 0 0 1 6 6 1 1 0 1 1-2 0 4 4 0 0 0-4-4 1 1 0 0 1 0-2zm.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"></path></svg> Meetings</a>
+                            <span b-99ebu3icm7="" class="delim"></span><a b-99ebu3icm7="" href="https://www.legislature.mi.gov/documents/publications/RssFeeds/MCLupdate.xml"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#0264F7" class="bi bi-rss-fill" viewBox="0 0 16 16" alt="Laws Rss Feed" title="">  <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm1.5 2.5c5.523 0 10 4.477 10 10a1 1 0 1 1-2 0 8 8 0 0 0-8-8 1 1 0 0 1 0-2zm0 4a6 6 0 0 1 6 6 1 1 0 1 1-2 0 4 4 0 0 0-4-4 1 1 0 0 1 0-2zm.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"></path></svg> Laws</a>
+                        </div>
+                    </div>
+                </div>
+                <div b-99ebu3icm7="" class="row">
+                    <p b-99ebu3icm7="">
+                        The Michigan Legislature Website is a free service of the Legislative Service Bureau in cooperation with the Michigan Legislative Council, the Michigan House
+                        of Representatives, the Michigan Senate, and the Library of Michigan. This site is intended to provide accurate and timely legislative information to the
+                        citizens of the State of Michigan and other interested parties. Additional historical documents can be found at
+                        <a b-99ebu3icm7="" href="https://www.michigan.gov/libraryofmichigan">https://www.michigan.gov/libraryofmichigan</a>. The information obtained from this site is not intended to replace
+                        official versions of that information and is subject to revision. The Legislature presents this information, without warranties, express or implied, regarding
+                        the accuracy of the information, timeliness, or completeness. If you believe the information is inaccurate, out-of-date, or incomplete or if you have problems
+                        accessing or reading the information, please send your concerns to the appropriate agency using the online Comment Form in the bar above this text.
+                    </p>
+                </div>
+            </div>
+        </footer>
+    
+
+</body></html>

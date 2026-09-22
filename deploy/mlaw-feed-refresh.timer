@@ -1,0 +1,10 @@
+[Unit]
+Description=Poll the Michigan law updates feed hourly (see mlaw-ingest.timer for the nightly full-crawl safety net)
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "michigan-law-mcp"
+version = "0.1.0"
+description = "MCP server for Michigan statutes (MCL), Constitution, court rules and Public Acts, backed by a daily-updated SQLite store"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Michael C. Naughton" }]
+requires-python = ">=3.10"
+dependencies = [
+  # Upper-bounded on purpose: server.py is written against the mcp 1.x FastMCP API
+  # (`from mcp.server.fastmcp import FastMCP`). mcp 2.x renamed FastMCP to MCPServer and changed other APIs
+  # (see https://py.sdk.modelcontextprotocol.io/v2/migration/). Confirmed live 2026-09-22 on Mike's Mac
+  # Mini: an unbounded "mcp>=1.20" let a real `pip install` pull mcp 2.x, which broke `mlaw serve` outright
+  # (ModuleNotFoundError: No module named 'mcp.server.fastmcp') -- and, in hindsight, was almost certainly
+  # also the cause of the long-standing test_server.py collection failure noted on that machine since the
+  # very first day of this project ("cannot import name 'create_connected_server_and_client_session' from
+  # mcp.shared.memory"), dismissed at the time as an unrelated environment quirk. The cloud workspace has
+  # mcp 1.27.0 installed and test_server.py passes cleanly there (3/3) -- this project's actual server code
+  # was never broken, only Mike's real install had drifted onto an untested major version. Revisit this pin
+  # (and migrate server.py to MCPServer) as a deliberate decision, not by letting pip silently pick it.
+  "mcp>=1.20,<2",
+  "httpx>=0.27",
+  "beautifulsoup4>=4.12",
+  "lxml>=5.0",
+  "uvicorn>=0.30",
+  # Needed for MLAW_USE_SYSTEM_TRUST=1 (see web.py's tls_verify_setting()) -- confirmed live 2026-09-21 as
+  # the actual fix for legislature.mi.gov's incomplete certificate chain, so this is no longer an optional
+  # workaround someone might reach for; it's what real crawling against that site depends on.
+  "truststore>=0.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+mlaw = "mlaw.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

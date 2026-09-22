@@ -1,0 +1,26 @@
+This repository is open-source software (see LICENSE). It does not distribute a copy of the
+Michigan Compiled Laws, and none is bundled with it: `fixtures/` contains only synthetic
+"[FIXTURE]" text used by the test suite.
+
+If you run your own instance, you will fetch statutory text yourself, from
+https://legislature.mi.gov/documents/mcl/ (the Legislature's own machine-readable XML) and/or
+the Legislature's website. Before you do:
+
+- Read `docs/lsb-inquiry.md` and `docs/lsb-reply-2026-09-21.md` in this repository. They record
+  a real written exchange with the Michigan Legislature (Legislative Service Bureau) about
+  automated access, current as of 2026-09-21. Automated access was described as permitted, with
+  a requested rate limit of at most 1 request per second (stated as subject to change), and
+  storing/serving a copy was described as permitted with no specific wording requirements.
+  This is not a license grant to you personally, is not legal advice, and terms can change --
+  read the reply yourself and, if in doubt, ask the Legislature directly (contact information
+  is in `docs/lsb-inquiry.md`).
+- Identify your own crawler with your own contact information (`MLAW_USER_AGENT`), keep your
+  request rate at or below what the Legislature has asked for, and do not remove or weaken the
+  standing notice (`mlaw.config.NOTICE`) that this is an unofficial copy, subject to revision,
+  and provided without warranties.
+- Do not represent statutory text served by your instance as an official publication of the
+  State of Michigan or the Michigan Legislature. Verify anything you rely on against the
+  official source, especially for a filing or a deadline.
+
+None of this is legal advice. If you intend to run a copy of this server for anyone beyond
+yourself, have a lawyer familiar with your jurisdiction and use case review your terms of use.

@@ -1,14 +1,23 @@
 [Unit]
-Description=Michigan law MCP server (HTTP)
-After=network-online.target
+Description=Michigan law MCP server (HTTP, Tailscale-only)
+After=network-online.target tailscaled.service
+Wants=tailscaled.service
 
 [Service]
 User=mlaw
 WorkingDirectory=/opt/michigan-law-mcp
 Environment=MLAW_DB=/var/lib/mlaw/mlaw.sqlite3
-# /etc/mlaw.env holds MLAW_BEARER_TOKEN=... and MLAW_ALLOWED_HOSTS=law.example.com
+# Decided 2026-09-22 (see docs/deployment-strategy.md): this stays private -- no public domain, no Caddy
+# TLS, no port-forwarding. Bind directly to the host's OWN Tailscale IP, not a service-specific sidecar
+# address (this host also runs a `gitea-tailscale` sidecar container for Gitea, which has its own separate
+# Tailscale identity/IP -- confirmed live 2026-09-22 that the two are different addresses on this NUC).
+# Get this host's address with `tailscale ip -4` and put it here, e.g. --host 100.84.23.115. Traffic on the
+# tailnet is already WireGuard-encrypted, so no separate TLS layer is needed for this private-only setup;
+# revisit deploy/Caddyfile.example if this ever needs to be reachable from outside the tailnet.
+# /etc/mlaw.env holds MLAW_BEARER_TOKEN=... (still required -- the tailnet controls who can reach the port,
+# the bearer token controls who can call the tools) and MLAW_ALLOWED_HOSTS=<that same Tailscale IP>.
 EnvironmentFile=/etc/mlaw.env
-ExecStart=/opt/michigan-law-mcp/.venv/bin/mlaw serve --transport http --host 127.0.0.1 --port 8000
+ExecStart=/opt/michigan-law-mcp/.venv/bin/mlaw serve --transport http --host 100.84.23.115 --port 8000
 Restart=on-failure
 
 [Install]

@@ -1,4 +1,7 @@
-# TLS and reverse proxy in front of the MCP server.
+# NOT currently used. Decided 2026-09-22 (docs/deployment-strategy.md): mlaw-serve stays private, reachable
+# only over Tailscale (see deploy/mlaw-serve.service) -- no public domain, no port-forwarding, no Caddy in
+# front of it for now. Keep this file for if/when wider access is revisited; it assumes you own a real
+# domain with an A record pointed at this host's public IP and have forwarded port 443 to it.
 law.example.com {
     reverse_proxy 127.0.0.1:8000
 }

@@ -15,7 +15,15 @@ Environment=MLAW_DB=/var/lib/mlaw/mlaw.sqlite3
 # tailnet is already WireGuard-encrypted, so no separate TLS layer is needed for this private-only setup;
 # revisit deploy/Caddyfile.example if this ever needs to be reachable from outside the tailnet.
 # /etc/mlaw.env holds MLAW_BEARER_TOKEN=... (still required -- the tailnet controls who can reach the port,
-# the bearer token controls who can call the tools) and MLAW_ALLOWED_HOSTS=<that same Tailscale IP>.
+# the bearer token controls who can call the tools) and MLAW_ALLOWED_HOSTS=<that same Tailscale IP>:*
+# -- confirmed live 2026-09-22: the MCP SDK's Host-header check (transport_security.py) compares against
+# the Host header a client actually sends, which includes the port for a non-default port like 8000 (e.g.
+# "100.84.23.115:8000"). MLAW_ALLOWED_HOSTS set to the bare IP with no ":*" wildcard suffix does NOT match
+# that and every request gets a 421 "Invalid Host header", bearer token notwithstanding -- the wildcard
+# suffix is the SDK's documented way to match any port. Also confirmed the same day: this box's Tailscale
+# tailnet uses grants-based ACLs (default-deny), so a grant permitting your own devices to reach this host
+# on this port (see docs/deployment-strategy.md) is needed too, separately from this Host-header setting --
+# ACL-blocked traffic never even reaches this process, it's dropped by tailscaled before the kernel socket.
 EnvironmentFile=/etc/mlaw.env
 ExecStart=/opt/michigan-law-mcp/.venv/bin/mlaw serve --transport http --host 100.84.23.115 --port 8000
 Restart=on-failure

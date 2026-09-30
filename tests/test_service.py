@@ -142,3 +142,31 @@ def test_public_act_and_status(loaded):
     st = service.data_status(loaded)["sources"][0]
     assert st["source"] == "mcl" and st["active_documents"] == 6 and st["removed_documents"] == 1
     assert st["last_run_status"] == "ok"
+
+
+def test_provenance_currency_comes_from_the_crawler_that_produced_the_version(conn):
+    # runs.source is the crawler's name ("mre-files"); documents.source is the document kind ("mre").
+    # Looking currency up by the document kind never matched, so get_document showed source_currency None.
+    from mlaw.models import ParsedDoc
+    from mlaw.pipeline import run_ingest
+    from mlaw.service import get_document
+
+    class Src:
+        name = "mre-files"
+        complete = True
+        covered_chapters = None
+        source_kinds = frozenset({"mre"})
+        currency = "MRE updated with MSC order(s) effective 2026-01-28"
+
+        def iter_documents(self):
+            yield ParsedDoc(source="mre", citation="MRE 609", text="(a) In General.", chapter="6")
+
+        def iter_public_acts(self):
+            return []
+
+        def iter_ranges(self):
+            return []
+
+    run_ingest(conn, Src(), now="2026-09-29T06:00:00Z")
+    got = get_document(conn, "MRE 609")
+    assert got["provenance"]["source_currency"] == "MRE updated with MSC order(s) effective 2026-01-28"

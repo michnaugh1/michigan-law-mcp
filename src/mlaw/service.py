@@ -46,10 +46,13 @@ def _doc_row(conn: sqlite3.Connection, source: str, citation: str):
 
 
 def _provenance(conn, doc, ver) -> dict[str, Any]:
+    # runs.source is the crawler's name ("mcl-xml-web", "mre-files"), not the document kind in
+    # documents.source ("mcl", "mre"), so find the crawler through the run that produced this version and
+    # take that crawler's latest currency stamp. (Looking it up by documents.source never matched.)
     cur = conn.execute(
-        "SELECT source_currency FROM runs WHERE source = ? AND status = 'ok' AND source_currency IS NOT NULL"
-        " ORDER BY id DESC LIMIT 1",
-        (doc["source"],),
+        "SELECT source_currency FROM runs WHERE source = (SELECT source FROM runs WHERE id = ?)"
+        " AND status = 'ok' AND source_currency IS NOT NULL ORDER BY id DESC LIMIT 1",
+        (ver["run_id"],),
     ).fetchone()
     return {
         "source_url": doc["url"],

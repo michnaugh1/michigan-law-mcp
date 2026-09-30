@@ -919,8 +919,17 @@ def _felony_page(page, pno: int, listed_in: str | None, structural: list[str]
     if t_bottom > ys[-1] + 5:
         ys.append(t_bottom)
 
-    fills = [r for r in page.rects if _is_gray_fill(r, 0.8, 0.95)]
+    # Shaded rows are usually 0.847 gray, but at least one is 0.753 (MCL 445.67 on p.149 of the 2026
+    # manual, and its alphabetical-list twin on p.199) -- missed by an 0.8 cutoff and caught only at the
+    # attorney's checkpoint review. Accept 0.72-0.95, and refuse any other gray inside the table, so a new
+    # shade in a future edition fails loudly instead of silently reading as "current".
+    fills = [r for r in page.rects if _is_gray_fill(r, 0.72, 0.95)]
     bars = [r for r in page.rects if _is_gray_fill(r, 0.3, 0.7)]
+    for r in page.rects:
+        if (_is_gray_fill(r, 0.05, 0.99) and not _is_gray_fill(r, 0.72, 0.95) and not _is_gray_fill(r, 0.3, 0.7)
+                and table_left - 1 <= r["x0"] and r["x1"] <= table_right + 1):
+            structural.append(f"felony list page {pno}: unrecognized gray fill {r.get('non_stroking_color')!r}"
+                              f" at y={r['top']:.0f}; cannot tell whether that row is shaded")
 
     in_box = [c for c in chars if not c["text"].isspace()
               and table_left - 1 <= (c["x0"] + c["x1"]) / 2 <= table_right + 1

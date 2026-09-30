@@ -388,7 +388,7 @@ def test_felony_list_counts_and_value_sets(felony):
     # the numerical list (pp. 135-174) is the data; the alphabetical list (pp. 175-212) reprints the same
     # rows and agrees with it row for row (see test_felony_review_notes for the one wording difference)
     assert len(rows) == 1542 and len(felony.alphabetical) == 1542
-    assert len(shaded) == 384 and sum(not r.current for r in felony.alphabetical) == 384
+    assert len(shaded) == 385 and sum(not r.current for r in felony.alphabetical) == 385  # incl. MCL 445.67 (0.753 gray)
     assert {r.page for r in rows} == set(range(135, 175))
     assert {r.page for r in felony.alphabetical} == set(range(175, 213))
     assert {r.category for r in rows} == {"Person", "Property", "CS", "Pub ord", "Pub saf", "Pub trst", "Variable"}
@@ -410,9 +410,10 @@ def test_felony_review_notes(felony):
     notes = felony.review
     for n in notes:
         print("review:", n)
-    assert len(notes) == 8
-    assert any(n.startswith("page 149, MCL 445.67 (class E): not shaded") and "replaced, 2010 PA 317" in n
-               for n in notes)
+    assert len(notes) == 7
+    # MCL 445.67 used to be flagged "not shaded, but replaced" -- it IS shaded (0.753 gray); see
+    # test_darker_shaded_row_is_not_current_mcl_445_67.
+    assert not any("MCL 445.67" in n for n in notes)
     for cite in ("MCL 257.625n(10)", "MCL 333.7402(2)(a)", "MCL 750.116", "MCL 750.335a(2)(c)"):
         assert any(cite in n and "shaded (not current)" in n for n in notes), cite
     assert sum(n.startswith("MCL 750.492a(1)(a) ") for n in notes) == 2  # "placement false" vs "placement of false"
@@ -566,7 +567,7 @@ def test_felony_ingest_and_lookup(conn, src):
     r = run_ingest(conn, src, now="2026-09-29T06:00:00Z")
     assert conn.execute("SELECT COUNT(*) FROM sentencing_offenses").fetchone()[0] == 1542
     assert {e for (e,) in conn.execute("SELECT DISTINCT edition FROM sentencing_offenses")} == {src.currency}
-    assert len(r.warnings) == len(src.manual.felony.review) == 8
+    assert len(r.warnings) == len(src.manual.felony.review) == 7
 
     res = get_sentencing_class(conn, "MCL 750.84")
     assert res["listed"] is True and res["count"] == 2
@@ -584,3 +585,14 @@ def test_felony_ingest_and_lookup(conn, src):
     run_ingest(conn, src, now="2026-09-30T06:00:00Z")  # replaces, never appends
     assert conn.execute("SELECT COUNT(*) FROM sentencing_offenses").fetchone()[0] == 1542
     assert get_sentencing_class(conn, "750.84")["count"] == 2
+
+
+@needs_pdf
+def test_darker_shaded_row_is_not_current_mcl_445_67(felony):
+    # Found at Checkpoint A (2026-09-29): this row's fill is 0.753 gray, not the usual 0.847.
+    rows = [r for r in felony.rows if r.raw_cite == "MCL 445.67" and r.page == 149]  # p.150 has the D/C repeat-offense rows (white)
+    assert [(r.description.split()[0], r.current, r.page) for r in rows] == [
+        ("Obtain/possess/sell/transfer", False, 149),
+        ("Solicit/obtain/possess/sell/transfer", True, 149),
+    ]
+    assert not felony.structural

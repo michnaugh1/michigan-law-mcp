@@ -106,8 +106,7 @@ def test_all_units_once_and_canonical(manual):
         assert cits.count(f"SGM PRV {n}") == 1
     for n in range(1, 21):
         assert n in manual.ov_groups, f"OV {n} not printed in any group"
-        expected = 0 if n in DIFFERING_OVS else 1
-        assert cits.count(f"SGM OV {n}") == expected
+        assert cits.count(f"SGM OV {n}") == 1
     for d in manual.docs:
         c = normalize_citation(d.citation)
         assert c is not None and c.canonical == d.citation and c.source == "sgm"
@@ -115,25 +114,59 @@ def test_all_units_once_and_canonical(manual):
         assert re.fullmatch(re.escape(sgm.DEFAULT_URL) + r"#page=\d+", d.url)
 
 
+def _sections(text: str) -> list[tuple[str, str]]:
+    """(header line, section text) for each "== Version for: ... ==" section."""
+    parts = re.split(r"^(== Version for: .+ ==)$", text, flags=re.M)
+    return list(zip(parts[1::2], parts[2::2]))
+
+
 @needs_pdf
-def test_ov_differences_are_flagged_not_resolved(manual, src):
-    """The 2026 manual's OV copies are NOT identical across groups. No copy is picked: the OV is left
-    out, a warning names it and the groups, the variants are kept for review, and the source is marked
-    incomplete so the pipeline never treats this run as a full crawl."""
+def test_ov_versions_by_group(manual, src, docs):
+    """OVs the manual prints differently per crime group are one unit holding every distinct version,
+    labeled with its groups; that is expected, so no warning and the source stays complete."""
+    assert manual.warnings == [] and src.complete is True
     assert set(manual.ov_variants) == DIFFERING_OVS
-    assert len(manual.warnings) == len(DIFFERING_OVS)
     for n in DIFFERING_OVS:
-        assert any(w.startswith(f"SGM OV {n}:") for w in manual.warnings)
         assert list(manual.ov_variants[n]) == manual.ov_groups[n]
-    assert src.complete is False
-    v = manual.ov_variants
-    assert "and death results" in v[3][PERSON] and "where death results" in v[3][ORDER]
-    assert "MCL 777.22(1)." in v[18][PERSON] and "MCL 777.22(5)." in v[18][SAFETY]
-    assert "home invasion" in v[16][PERSON] and "home invasion" not in v[16][PROPERTY]
-    assert "10 — Three or more contemporaneous" in v[12][ORDER]
-    assert "10 — Three or more contemporaneous" not in v[12][PERSON]
-    # every other OV agreed across all its groups
-    assert "SGM OV 1:" not in " ".join(manual.warnings)
+        d = docs[f"SGM OV {n}"]
+        assert d.text.startswith("Scored for: " + "; ".join(manual.ov_groups[n]) + "\n\n== Version for: ")
+        grouped = [g for h, _ in _sections(d.text) for g in h[len("== Version for: "):-3].split("; ")]
+        assert sorted(grouped) == sorted(manual.ov_groups[n])  # every group in exactly one version
+
+    ov16 = _sections(docs["SGM OV 16"].text)
+    assert len(ov16) == 2 and docs["SGM OV 16"].text.count("== Version for:") == 2
+    assert ov16[0][0] == "== Version for: Crimes Against a Person =="
+    assert "MCL 750.110a (home invasion)" in ov16[0][1]
+    assert "home invasion" not in ov16[1][1]
+    assert docs["SGM OV 16"].catchline == "Property Obtained, Damaged, Lost, or Destroyed"
+
+    ov18 = dict(_sections(docs["SGM OV 18"].text))
+    assert "MCL 777.22(1)" in ov18[f"== Version for: {PERSON} =="]
+    assert "MCL 777.22(5)" in ov18[f"== Version for: {SAFETY} =="]
+
+    ov3 = _sections(docs["SGM OV 3"].text)
+    assert "and death results" in ov3[0][1] and "where death results" in dict(ov3)[f"== Version for: {ORDER} =="]
+    ov12 = dict(_sections(docs["SGM OV 12"].text))
+    assert "10 — Three or more contemporaneous" in ov12[f"== Version for: {ORDER}; {SAFETY} =="]
+
+    assert "== Version for:" not in docs["SGM OV 1"].text
+    assert "\n\n" not in docs["SGM OV 1"].text
+
+
+def test_differing_titles_warn(monkeypatch):
+    """A new kind of disagreement (titles) is still a warning and makes the source incomplete."""
+    m = sgm.SgmManual(docs=[], current_through="2026-05-20", edition_label=None, grid_pages=(1, 1),
+                      felony_list_pages=(2, 2), warnings=["SGM OV 7: title differs between groups: ..."])
+
+    class Src(sgm._SgmSourceBase):
+        name = "t"
+
+        def _load(self):
+            return m
+
+    s = Src()
+    list(s.iter_documents())
+    assert s.complete is False
 
 
 @needs_pdf
@@ -212,7 +245,8 @@ def test_every_note_reference_has_text(docs):
 def test_no_page_furniture(docs):
     for d in docs.values():
         for ln in d.text.splitlines():
-            assert ln.strip(), f"{d.citation}: blank line"
+            if "== Version for:" not in d.text:
+                assert ln.strip(), f"{d.citation}: blank line"
             assert not re.fullmatch(r"\s*\d{1,3}\s*", ln), f"{d.citation}: page-number-only line {ln!r}"
             assert not re.search(r"\bPRVs$", ln), f"{d.citation}: tab label {ln!r}"
             assert ln != "Sentencing Grids"
@@ -274,7 +308,7 @@ def test_web_source_matches_files_source(manual):
     assert web.edition_label == "Sentencing Guidelines Manual 2026"
     assert web.manual.edition_label == "Sentencing Guidelines Manual 2026"
     assert web.currency == "SGM 2026 (current through 2026-05-20)"
-    assert web.name == "sgm-web" and web.complete is False  # same OV differences as the files source
+    assert web.name == "sgm-web" and web.complete is True
     assert got == manual.docs
     assert len(client.urls) == 2 and "former" not in " ".join(client.urls).lower()
 
@@ -316,7 +350,7 @@ def test_ingest(conn, src):
     run = conn.execute("SELECT * FROM runs WHERE id = ?", (r.run_id,)).fetchone()
     assert run["source"] == "sgm-files" and run["status"] == "ok"
     assert run["source_currency"] == "SGM 2026 (current through 2026-05-20)"
-    assert run["complete_crawl"] == 0
+    assert run["complete_crawl"] == 1
     d = get_document(conn, "SGM OV 10")
     assert d["citation"] == "SGM OV 10" and d["source"] == "sgm"
     assert "Predatory conduct was involved." in d["text"]

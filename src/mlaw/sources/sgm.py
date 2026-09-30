@@ -41,7 +41,9 @@ doubtful parse can never mark stored units removed):
 
     * every footnote reference in a unit must have footnote text, and every footnote must be referenced;
     * a shaded row with no "shaded" explanation in the unit, or vice versa; shading outside a table;
-    * an OV whose text differs between the groups that print it (the copies are *not* reconciled);
+    * an OV whose title differs between the groups that print it. (Differing *text* is expected -- the
+      2026 manual prints OV 3, 12, 16 and 18 differently per crime group -- and is stored, not reconciled:
+      one unit per OV with a "== Version for: <groups> ==" section per distinct version.)
     * a PRV/OV missing, duplicated, or Steps out of order; orphan superscripts; unexpected headings.
 """
 
@@ -81,8 +83,8 @@ class SgmManual:
     felony_list_pages: tuple[int, int]  # 1-based, inclusive
     warnings: list[str] = field(default_factory=list)
     ov_groups: dict[int, list[str]] = field(default_factory=dict)  # OV number -> groups printing it
-    # OVs whose copies differ between groups: OV number -> {group: text}. These OVs are NOT in ``docs``
-    # (no copy is picked); they are kept here so the differences can be reviewed and resolved by hand.
+    # OVs whose copies differ between groups: OV number -> {group: title + text}. In ``docs`` such an OV is
+    # one unit holding every distinct version, each under "== Version for: <groups> ==".
     ov_variants: dict[int, dict[str, str]] = field(default_factory=dict)
 
 
@@ -697,14 +699,22 @@ def parse_manual(path: str | Path, url: str = DEFAULT_URL, edition_label: str | 
         ov_groups[n] = groups
         bodies = [_unit_body(u) for u in us]
         titles = [" ".join(u.title) for u in us]
-        ref = (_norm(titles[0]), _norm(bodies[0]))
-        differing = [g for g, t, b in zip(groups, titles, bodies) if (_norm(t), _norm(b)) != ref]
-        if differing:
-            warnings.append(f"SGM OV {n}: text printed under {', '.join(differing)} differs from the copy under "
-                            f"{groups[0]}; not stored until reconciled by hand")
+        scored_for = "Scored for: " + "; ".join(groups)
+        if len({_norm(t) for t in titles}) != 1:
+            warnings.append(f"SGM OV {n}: title differs between groups: "
+                            + "; ".join(f"{g}: {t!r}" for g, t in zip(groups, titles)))
+        if len({_norm(b) for b in bodies}) == 1:
+            text = scored_for + "\n" + bodies[0]
+        else:
+            # The manual prints different text for this OV under different crime groups (2026: OV 3, 12,
+            # 16, 18). No copy is picked: every distinct version is stored, labeled with its groups, in
+            # manual order (by the first group printing it).
             ov_variants[n] = {g: (t + "\n" + b) for g, t, b in zip(groups, titles, bodies)}
-            continue
-        text = "Scored for: " + "; ".join(groups) + "\n" + bodies[0]
+            versions: dict[str, tuple[list[str], str]] = {}
+            for g, b in zip(groups, bodies):
+                versions.setdefault(_norm(b), ([], b))[0].append(g)
+            sections = [f"== Version for: {'; '.join(gs)} ==\n{b}" for gs, b in versions.values()]
+            text = scored_for + "\n\n" + "\n\n".join(sections)
         docs.append(mkdoc(us[0], text))
 
     for u in parser.units:

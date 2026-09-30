@@ -256,3 +256,10 @@ def test_cji_xref_never_truncates_to_another_instruction():
     got = {(x.kind, x.key) for x in extract_xrefs("MCrim JI 5.8b; M Crim JI 20.28a, and M Crim JI 5.1.")}
     assert got == {("cji", "M Crim JI 5.8b"), ("cji", "M Crim JI 20.28a"), ("cji", "M Crim JI 5.1")}
     assert extract_xrefs("M Crim JI 5.8ab") == []
+
+
+def test_mre_letter_suffix():
+    assert normalize_citation("MRE 803A").canonical == "MRE 803A"
+    assert normalize_citation("mre 803a(2)").canonical == "MRE 803A"
+    got = {(x.kind, x.key) for x in extract_xrefs("under MRE 803A and MRE 803(6), not MRE 8039")}
+    assert got == {("mre", "MRE 803A"), ("mre", "MRE 803"), ("mre", "MRE 8039")}

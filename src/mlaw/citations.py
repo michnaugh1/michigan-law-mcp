@@ -55,7 +55,8 @@ _PA_RE = re.compile(r"\b(\d{4})\s+PA\s+(\d{1,4})\b")
 # hits, no false positives sampled.
 _PA_RE2 = re.compile(r"\bAct\s+(?:No\.\s+)?(\d{1,4})\s+of\s+(?:the\s+Public\s+Acts\s+of\s+)?(\d{4})\b", re.I)
 _MCR_RE = re.compile(r"\bMCR\s+(\d{1,2}\.\d{1,3}[A-Za-z]?)")
-_MRE_RE = re.compile(r"\bMRE\s+(\d{3,4})")
+# Letter-suffixed rules exist (MRE 803A, statement of a child about sexual abuse); canonical suffix is uppercase.
+_MRE_RE = re.compile(r"\bMRE\s+(\d{3,4}[A-Za-z]?)(?![A-Za-z0-9])")
 # Model Criminal Jury Instructions: the source writes both "M Crim JI 5.1" and "MCrim JI 5.2".
 _CJI_NUM = r"\d{1,2}\.\d{1,3}[a-z]?"
 _CJI_PREFIX = r"M(?:\.\s*|\s+)?Crim\.?\s+JI"
@@ -190,9 +191,9 @@ def normalize_citation(text: str) -> Citation | None:
     if m:
         return Citation("mcr", f"MCR {m.group(1)}")
 
-    m = re.fullmatch(r"MRE\s*(\d{3,4})(?:\(.*\))?", s, re.I)
+    m = re.fullmatch(r"MRE\s*(\d{3,4}[A-Za-z]?)(?:\(.*\))?", s, re.I)
     if m:
-        return Citation("mre", f"MRE {m.group(1)}")
+        return Citation("mre", f"MRE {m.group(1).upper()}")
 
     m = _CONST_RE.fullmatch(s)
     if m:
@@ -285,7 +286,7 @@ def extract_xrefs(text: str, self_citation: str | None = None) -> list[XRef]:
     for m in _MCR_RE.finditer(text):
         found.append(XRef("mcr", f"MCR {m.group(1)}", m.group(0)))
     for m in _MRE_RE.finditer(text):
-        found.append(XRef("mre", f"MRE {m.group(1)}", m.group(0)))
+        found.append(XRef("mre", f"MRE {m.group(1).upper()}", m.group(0)))
     for m in _CJI_RE.finditer(text):
         found.append(XRef("cji", f"M Crim JI {m.group(1).lower()}", m.group(0)))
     for m in _SGM_RE.finditer(text):

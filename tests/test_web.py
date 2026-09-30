@@ -144,3 +144,30 @@ def test_robots_error_override_is_opt_in_and_still_honors_a_readable_file():
     c3, _ = make(readable, robots_error_ok=True)
     with pytest.raises(RobotsDisallowed):
         c3.get("https://x.test/private/x")  # a real robots.txt still wins
+
+
+def test_extra_headers_are_sent():
+    seen = {}
+
+    def handler(req):
+        if req.url.path == "/robots.txt":
+            return httpx.Response(404)
+        seen.update(req.headers)
+        return httpx.Response(200, text="[]")
+
+    c, _ = make(handler)
+    c.get("https://example.org/api", headers={"Accept": "application/json"})
+    assert seen["accept"] == "application/json"
+
+
+def test_courts_michigan_gov_robots_blocks_everything():
+    # courts.michigan.gov serves exactly this robots.txt (checked 2026-09-29); until the Court permits
+    # automated access (docs/msc-inquiry.md), every court-rules web source must fail closed here.
+    def handler(req):
+        if req.url.path == "/robots.txt":
+            return httpx.Response(200, text="User-agent: *\nDisallow: /\n")
+        raise AssertionError("page fetched despite robots.txt")
+
+    c, _ = make(handler)
+    with pytest.raises(RobotsDisallowed):
+        c.get("https://www.courts.michigan.gov/api/episerver/v3.0/content/?contentUrl=%2F&expand=*")

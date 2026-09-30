@@ -131,14 +131,17 @@ class PoliteClient:
         d = rp.crawl_delay(self._ua)
         return max(self._min_interval, float(d)) if d else self._min_interval
 
-    def get(self, url: str, *, etag: str | None = None, last_modified: str | None = None) -> Fetched:
+    def get(
+        self, url: str, *, etag: str | None = None, last_modified: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Fetched:
         rp = self._robots_for(url)
         if not rp.can_fetch(self._ua, url):
             raise RobotsDisallowed(f"robots.txt disallows {url}")
         host = urlsplit(url).netloc
         delay = self._crawl_delay(rp)
 
-        headers = {}
+        headers = dict(headers or {})  # e.g. Accept: application/json for courts.michigan.gov's content API
         if etag:
             headers["If-None-Match"] = etag
         if last_modified:

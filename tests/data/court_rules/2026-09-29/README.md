@@ -15,3 +15,4 @@ These files were retrieved by hand during research on 2026-09-29.
 | `sgm/sgm.pdf` | Sentencing Guidelines Manual 2026, current through 5/20/2026 | **not committed** (8.7 MB); see `SHA256SUMS`. Tests that need it skip when it is absent. Put the file here by hand. |
 | `catalog.children.excerpt.json` | children of "Current Rules, Administrative Orders and Jury Instructions" | **reconstructed** from the API listing (name + contentLink.url only) |
 | `cji/model-criminal-jury-instructions.api.excerpt.json` | M Crim JI page | **reconstructed**: the two asset URLs the page links; link text is a placeholder |
+| `cji/criminal-jury-instructions.pdf` | Model Criminal Jury Instructions, "UPDATED August 31, 2026", 1,134 pp | **not committed** (7.7 MB); downloaded by Mike in a browser 2026-09-29; see `SHA256SUMS`. Tests that need it skip when absent. |

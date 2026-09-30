@@ -7,3 +7,4 @@ __pycache__/
 .env
 .venv/
 tests/data/court_rules/*/sgm/sgm.pdf
+tests/data/court_rules/*/cji/criminal-jury-instructions.pdf

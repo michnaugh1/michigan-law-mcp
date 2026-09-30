@@ -245,7 +245,7 @@ def test_every_note_reference_has_text(docs):
 def test_no_page_furniture(docs):
     for d in docs.values():
         for ln in d.text.splitlines():
-            if "== Version for:" not in d.text:
+            if "== Version for:" not in d.text and not d.citation.startswith("SGM Grid"):  # grids: Markdown
                 assert ln.strip(), f"{d.citation}: blank line"
             assert not re.fullmatch(r"\s*\d{1,3}\s*", ln), f"{d.citation}: page-number-only line {ln!r}"
             assert not re.search(r"\bPRVs$", ln), f"{d.citation}: tab label {ln!r}"
@@ -596,3 +596,207 @@ def test_darker_shaded_row_is_not_current_mcl_445_67(felony):
         ("Solicit/obtain/possess/sell/transfer", True, 149),
     ]
     assert not felony.structural
+
+
+# ---------------------------------------------------------------------------------------------- grids
+#
+# Every cell asserted below was read off a 110-dpi render of the page (pdftoppm) on 2026-09-29, not taken
+# from the parser output. Tuples: (ov, prv, min, [base, HO2, HO3, HO4] maxima, [shaded per status]).
+
+GRID_PAGES = {"M2": 125, "A": 126, "B": 127, "C": 128, "D": 129, "E": 130, "F": 131, "G": 132, "H": 133}
+_N = (False, False, False, False)
+VERIFIED_CELLS = {
+    "M2": [("I", "A", "90", ["150", "187", "225", "300"], _N),
+           ("II", "D", "225", ["375/L", "468/L", "562/L", "750/L"], _N),
+           ("III", "F", "365", ["600/L", "750/L", "900/L", "1200/L"], _N)],
+    "A": [("I", "A", "21", ["35", "43", "52", "70"], _N),
+          ("VI", "F", "270", ["450/L", "562/L", "675/L", "900/L"], _N)],
+    "B": [("I", "A", "0", ["18*", "22", "27", "36"], (False, True, True, True)),
+          ("II", "A", "12", ["20", "25", "30", "40"], (True, True, True, True)),
+          ("VI", "F", "117", ["160", "200", "240", "320"], _N)],
+    "C": [("I", "A", "0", ["11*", "13*", "16*", "22"], (False, False, False, True)),
+          ("II", "B", "5", ["17*", "21", "25", "34"], (False, True, True, True)),  # min cell painted white
+          ("VI", "F", "62", ["114", "142", "171", "228"], _N)],
+    "D": [("I", "A", "0", ["6*", "7*", "9*", "12*"], _N),
+          ("I", "D", "0", ["17*", "21", "25", "34"], (False, True, True, True)),
+          ("III", "C", "5", ["23", "28", "34", "46"], (True, True, True, True)),
+          ("VI", "F", "43", ["76", "95", "114", "152"], _N)],
+    "E": [("I", "A", "0", ["3*", "3*", "4*", "6*"], _N),
+          ("V", "A", "0", ["14*", "17*", "21", "28"], (False, False, True, True)),
+          ("VI", "F", "24", ["38", "47", "57", "76"], _N)],
+    "F": [("I", "A", "0", ["3*", "3*", "4*", "6*"], _N),
+          ("III", "B", "0", ["17*", "21", "25", "34"], (False, True, True, True)),
+          ("IV", "F", "17", ["30", "37", "45", "60"], _N)],
+    "G": [("I", "A", "0", ["3*", "3*", "4*", "6*"], _N),
+          ("III", "F", "7", ["23", "28", "34", "46"], (True, True, True, True))],
+    "H": [("I", "A", "0", ["1*", "1*", "1*", "2*"], _N),
+          ("III", "F", "5", ["17*", "21", "25", "34"], (False, True, True, True))],
+}
+GRID_SHAPE = {"M2": 3, "A": 6, "B": 6, "C": 6, "D": 6, "E": 6, "F": 4, "G": 3, "H": 3}  # OV levels
+
+
+@pytest.fixture(scope="module")
+def grids(manual):
+    return {g.klass: g for g in manual.grids}
+
+
+@needs_pdf
+def test_grids_found_once_each_on_their_pages(manual, grids):
+    assert [g.klass for g in manual.grids] == list(sgm.FELONY_CLASSES)
+    assert {k: g.pages for k, g in grids.items()} == {k: (p,) for k, p in GRID_PAGES.items()}
+    for k, g in grids.items():
+        assert g.statute == f"MCL 777.6{list(GRID_PAGES).index(k) + 1}"
+        assert g.title.startswith(f"Sentencing Grid for Class {k}") and g.title.endswith(g.statute)
+        assert g.subtitle == "Includes Ranges Calculated for Habitual Offenders (MCL 777.21(3)(a)-(c))"
+        assert g.prv_levels == [("A", "0 Points"), ("B", "1-9 Points"), ("C", "10-24 Points"),
+                                ("D", "25-49 Points"), ("E", "50-74 Points"), ("F", "75+ Points")]
+        assert [o for o, _ in g.ov_levels] == ["I", "II", "III", "IV", "V", "VI"][: GRID_SHAPE[k]]
+        assert len(g.cells) == GRID_SHAPE[k] * 6 * 4
+
+
+@needs_pdf
+def test_grid_ov_points(grids):
+    assert grids["M2"].ov_levels == [("I", "0-49 Points"), ("II", "50-99 Points"), ("III", "100+ Points")]
+    assert grids["A"].ov_levels[-1] == ("VI", "100+ Points")
+    assert grids["F"].ov_levels == [("I", "0-9 Points"), ("II", "10-34 Points"), ("III", "35-74 Points"),
+                                    ("IV", "75+ Points")]
+    assert grids["H"].ov_levels == [("I", "0-9 Points"), ("II", "10-15 Points"), ("III", "16+ Points")]
+
+
+@needs_pdf
+@pytest.mark.parametrize("klass", list(VERIFIED_CELLS))
+def test_grid_cells_verified_against_render(grids, klass):
+    g = grids[klass]
+    for ov, prv, mn, maxima, shaded in VERIFIED_CELLS[klass]:
+        got = [g.cells[(ov, prv, s)] for s in sgm.GRID_STATUSES]
+        assert [(c.min, c.max, c.shaded) for c in got] == list(zip([mn] * 4, maxima, shaded)), (klass, ov, prv)
+
+
+@needs_pdf
+def test_grids_validate_cleanly(manual, grids):
+    for g in grids.values():
+        assert g.structural == [] and g.review == [], g.klass
+    assert not manual.warnings
+
+
+@needs_pdf
+def test_grid_notes_verbatim(grids):
+    hab = ("The statutory percentage increases for habitual offenders are rounded down to the nearest whole month; "
+           "accordingly, the cell range may be less than the maximum possible minimum sentence by a fraction of a "
+           "month.")
+    ho4 = ("Certain fourth habitual offenders may be subject to a mandatory minimum sentence of 25 years’ "
+           "imprisonment. See MCL 769.12(1)(a).")
+    legend = ("Intermediate sanction cells are marked by asterisks following the upper end of the minimum sentence "
+              "range, straddle cells are shaded, and prison cells are unmarked.")
+    for k in ("M2", "A"):
+        assert grids[k].notes == [hab, ho4]
+    for k in "BCDEFGH":
+        assert grids[k].notes == [legend, hab, ho4]
+
+
+def _mutated(grids, klass="D"):
+    import copy
+
+    g = copy.deepcopy(grids[klass])
+    g.structural, g.review = [], []
+    return g
+
+
+@needs_pdf
+def test_grid_validation_catches_problems(grids):
+    g = _mutated(grids)
+    g.cells[("VI", "F", "HO2")].max = "70"  # below base 76: decreasing across statuses
+    sgm._validate_grid(g)
+    assert any("decrease across offender status" in s for s in g.structural)
+    assert any("OV VI / PRV F / HO2: printed 70, but base 76 +25% rounded down is 95" in r for r in g.review)
+
+    g = _mutated(grids)
+    del g.cells[("II", "C", "HO3")]
+    sgm._validate_grid(g)
+    assert any("1 cells missing" in s for s in g.structural)
+
+    g = _mutated(grids)
+    g.cells[("I", "E", "base")].shaded = False  # 5-23 must be a straddle cell
+    sgm._validate_grid(g)
+    want = "OV I / PRV E / base: 5-23 is printed as prison, but its numbers make it straddle"
+    assert any(want in r for r in g.review)
+    assert any("OV I / PRV E: minimum cell is shaded" in r for r in g.review)
+
+    g = _mutated(grids)
+    g.cells[("II", "B", "base")].max = "12*"  # left of C's 17*, right of A's 9*: still fine; now break order
+    g.cells[("II", "C", "base")].max = "10*"
+    sgm._validate_grid(g)
+    assert any("base, OV II: PRV B 0-12* > PRV C 0-10*" in r for r in g.review)
+    assert not g.structural
+
+    g = _mutated(grids)
+    g.notes = g.notes[1:]  # the legend is gone but asterisks / shading remain
+    sgm._validate_grid(g)
+    assert any("no intermediate-sanction legend" in s for s in g.structural)
+    assert any("no straddle-cell legend" in s for s in g.structural)
+
+
+def test_grid_text_for_failed_grid_points_to_pdf():
+    g = sgm.Grid("C", "t", "s", "MCL 777.64", (128,), structural=["broken"])
+    assert sgm.grid_text(g, sgm.GRID_UNITS_QUOTE) == "This grid could not be extracted reliably; see the PDF page 128."
+
+
+@needs_pdf
+def test_failed_grid_is_a_pointer_and_source_incomplete(monkeypatch):
+    real = sgm.parse_grids
+
+    def broken(pdf, pages):
+        gs = real(pdf, pages)
+        gs[4].structural.append("SGM Grid D (page 129): simulated failure")
+        return gs
+
+    monkeypatch.setattr(sgm, "parse_grids", broken)
+    s = sgm.SgmFilesSource(PDF)
+    assert s.complete is False and any("simulated failure" in w for w in s.warnings)
+    d = {x.citation: x for x in s.manual.docs}
+    assert d["SGM Grid D"].text == "This grid could not be extracted reliably; see the PDF page 129."
+    assert d["SGM Grid D"].url.endswith("#page=129") and d["SGM Grid D"].status == "active"
+    assert "90–150" in d["SGM Grid M2"].text
+
+
+@needs_pdf
+def test_grid_docs(docs):
+    for k, p in GRID_PAGES.items():
+        d = docs[f"SGM Grid {k}"]
+        c = normalize_citation(d.citation)
+        assert c.canonical == d.citation and c.source == "sgm"
+        assert normalize_citation(f"sgm grid {k.lower()}").canonical == d.citation
+        assert d.kind == "guidelines" and d.url.endswith(f"sgm.pdf#page={p}")
+        assert d.catchline.startswith(f"Sentencing Grid for Class {k}")
+        assert d.text.count("\n## ") == 5  # Base, HO2, HO3, HO4, notes
+        assert sgm.GRID_UNITS_QUOTE in d.text
+    m2 = docs["SGM Grid M2"].text
+    assert m2.startswith("Sentencing Grid for Class M2 (Second-Degree Murder)—MCL 777.61\n")
+    base, ho2, ho3, ho4 = (m2.split(f"## {h}")[1] for h in ("Base", "HO2", "HO3", "HO4"))
+    assert "| I (0-49 Points) | 90–150 | 144–240 |" in base
+    assert "| I (0-49 Points) | 90–187 |" in ho2 and "| I (0-49 Points) | 90–225 |" in ho3
+    assert "| I (0-49 Points) | 90–300 |" in ho4
+    assert "| III (100+ Points) |" in ho4 and "365–1200/L |" in ho4
+    d = docs["SGM Grid D"].text
+    assert "| I (0-9 Points) | 0–6* | 0–9* | 0–11* | 0–17* | 5–23 [shaded] | 10–23 [shaded] |" in d
+
+
+@needs_pdf
+def test_grid_ingest(conn, src):
+    from conftest import DAY1, FIX
+    from mlaw.service import get_sentencing_class
+    from mlaw.sources.fixture import FixtureSource
+
+    run_ingest(conn, FixtureSource(FIX / "day1"), now=DAY1)
+    r = run_ingest(conn, src, now="2026-09-29T06:00:00Z")
+    assert r.docs_removed == 0
+    for k in GRID_PAGES:
+        assert get_document(conn, f"SGM Grid {k}")["citation"] == f"SGM Grid {k}"
+    d = get_document(conn, "sgm grid d")
+    assert d["citation"] == "SGM Grid D" and d["provenance"]["source_url"].endswith("#page=129")
+    assert "## HO4" in d["text"] and "| VI (75+ Points) | 10–46 [shaded] | 19–76 |" in d["text"]
+    # the grid named by the felony list for MCL 750.84 exists as a document
+    grids = {x["grid"] for x in get_sentencing_class(conn, "MCL 750.84")["rows"]}
+    assert grids == {"SGM Grid D"}
+    for gname in grids:
+        assert get_document(conn, gname)["citation"] == gname

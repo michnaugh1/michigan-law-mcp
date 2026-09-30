@@ -10,8 +10,9 @@ This module turns the *text* parts of it into citable units:
 
 It also parses the felony list at the back of the manual (``SgmManual.felony``, see "felony list"
 below) into rows for the ``sentencing_offenses`` table -- offense class and category per MCL cite -- which
-the pipeline stores through :meth:`_SgmSourceBase.apply_extras`. The sentencing grids are *not* parsed
-here, but their PDF page range is located and exposed on :class:`SgmManual`.
+the pipeline stores through :meth:`_SgmSourceBase.apply_extras`, and the sentencing grids (pp.125-133 in
+2026) into ``SGM Grid M2`` .. ``SGM Grid H`` units (see "sentencing grids" below; ``scripts/sgm_grid_dump.py``
+writes them as CSV for checking against the PDF).
 
 Why pdfplumber and not only ``pdftotext -layout``
     The layout text loses exactly the information that matters for quoting this manual accurately:
@@ -89,6 +90,7 @@ class SgmManual:
     # one unit holding every distinct version, each under "== Version for: <groups> ==".
     ov_variants: dict[int, dict[str, str]] = field(default_factory=dict)
     felony: FelonyList | None = None  # the parsed felony list (its structural warnings are also in warnings)
+    grids: list[Grid] = field(default_factory=list)  # the sentencing grids (structural problems also in warnings)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -661,8 +663,11 @@ def parse_manual(path: str | Path, url: str = DEFAULT_URL, edition_label: str | 
             parser.feed_page(lines, i + 1, float(page.height))
             page.close()
         felony = parse_felony_list(pdf, felony_pages)
+        grids = parse_grids(pdf, grid_pages)
     parser.finish()
     warnings.extend(felony.structural)
+    for g in grids:
+        warnings.extend(g.structural)
 
     # PRVs and Steps: exactly one each
     docs: list[ParsedDoc] = []
@@ -722,6 +727,23 @@ def parse_manual(path: str | Path, url: str = DEFAULT_URL, edition_label: str | 
             text = scored_for + "\n\n" + "\n\n".join(sections)
         docs.append(mkdoc(us[0], text))
 
+    # sentencing grids: one unit per class; a grid that failed any structural check is a pointer to its page
+    step4 = next((d for d in docs if d.citation == "SGM Instructions Step IV"), None)
+    quote = GRID_UNITS_QUOTE if step4 is not None and GRID_UNITS_QUOTE in _norm(step4.text) else None
+    if quote is None:
+        warnings.append("SGM Instructions Step IV no longer says how grid cells are expressed (months / \"L\"); "
+                        "grid documents are stored without that statement")
+    for g in sorted(grids, key=lambda g: FELONY_CLASSES.index(g.klass) if g.klass in FELONY_CLASSES else 99):
+        if g.klass not in FELONY_CLASSES:
+            continue
+        d = ParsedDoc(source="sgm", citation=f"SGM Grid {g.klass}", text=grid_text(g, quote),
+                      catchline=g.title or f"Sentencing Grid for Class {g.klass}", kind="guidelines",
+                      url=f"{url}#page={g.page}" if g.pages else url)
+        c = normalize_citation(d.citation)
+        if c is None or c.canonical != d.citation or c.source != "sgm":
+            raise SgmParseError(f"produced non-canonical citation {d.citation!r}")
+        docs.append(d)
+
     for u in parser.units:
         if u.shaded_rows and "shaded" not in _unit_body(u).lower():
             warnings.append(f"{u.citation} ({u.group or ''}): shaded rows but no explanation of shading")
@@ -737,7 +759,7 @@ def parse_manual(path: str | Path, url: str = DEFAULT_URL, edition_label: str | 
 
     return SgmManual(docs=docs, current_through=current, edition_label=edition_label, grid_pages=grid_pages,
                      felony_list_pages=felony_pages, warnings=warnings, ov_groups=ov_groups,
-                     ov_variants=ov_variants, felony=felony)
+                     ov_variants=ov_variants, felony=felony, grids=grids)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -1094,6 +1116,388 @@ def parse_felony_list(pdf, pages: tuple[int, int]) -> FelonyList:
 
 
 # --------------------------------------------------------------------------------------------------
+# sentencing grids ("Sentencing Grid for Class M2 ... H")
+#
+# Layout (2026 manual, pp.125-133, one grid per page, p.134 is an empty tab page; verified by rendering):
+# one ruled table per page, read entirely from the drawing:
+#
+#   * columns     = the 15 vertical rules: | OV Level | A-min | A-max | ... | F-min | F-max | Offender Status |
+#                   (each PRV level is a *pair* of columns; the header cell above the pair holds the letter and
+#                   its points, "A" / "0 Points");
+#   * OV rows     = the full-width horizontal rules below the header; the OV label cell holds "I 0-9 Points";
+#   * statuses    = inside an OV row, the max column of every PRV is split by three short rules into four
+#                   sub-rows; the Offender Status column labels them (blank = base, HO2, HO3, HO4);
+#   * a cell      = the MINIMUM, printed once (large, centered in the min column, spanning all four statuses),
+#                   and one MAXIMUM per status sub-row. The printed maximum is kept as printed: "150", "300/L",
+#                   "17*" (the asterisk marks an intermediate sanction cell);
+#   * shading     = a 0.82 gray fill behind a max sub-cell (the manual's "straddle cells are shaded"). Shading
+#                   varies by status within one cell (D, OV I / PRV D: base 0-17* unshaded, HO2..HO4 shaded).
+#                   The *last-painted* fill covering a sub-cell decides (p.128 paints one min cell white).
+#
+# Every character inside the table box must land in exactly one header / label / min / max cell; every
+# cell must hold exactly one value of the expected shape. Any failure is structural: the grid is then
+# stored as a pointer to the PDF page, never as numbers.
+
+GRID_STATUSES = ("base", "HO2", "HO3", "HO4")
+_GRID_TITLE_LINE = re.compile(r"^Sentencing Grid for Class (M2|[A-H])\b.*[—–-]\s*(MCL 777\.6\d)$")
+_GRID_PRV_HEAD = re.compile(r"^([A-F]) (\d+(?:-\d+|\+)? Points)$")
+_GRID_OV_LABEL = re.compile(r"^([IVX]+) (\d+(?:-\d+|\+)?) Points$")
+_GRID_MIN = re.compile(r"^\d+$")
+_GRID_MAX = re.compile(r"^(\d+)(\*|/L)?$|^L$")
+_GRID_NOTE_START = "•"
+_ROMANS = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X")
+# Statement quoted into every grid document, only if SGM Instructions Step IV (as parsed) contains it.
+GRID_UNITS_QUOTE = ("The recommended minimum sentence in each cell is expressed by a range of numbers "
+                    "(in months) or life imprisonment (“L”).")
+
+
+@dataclass
+class CellRange:
+    min: str  # as printed, e.g. "90", "0"
+    max: str  # as printed, e.g. "150", "300/L", "17*"
+    shaded: bool = False  # the max sub-cell for this status sits on a gray fill
+
+
+@dataclass
+class Grid:
+    klass: str  # M2 | A .. H
+    title: str  # "Sentencing Grid for Class D Offenses—MCL 777.65"
+    subtitle: str  # "Includes Ranges Calculated for Habitual Offenders (MCL 777.21(3)(a)-(c))"
+    statute: str  # "MCL 777.65"
+    pages: tuple[int, ...]
+    prv_levels: list[tuple[str, str]] = field(default_factory=list)  # ("A", "0 Points")
+    ov_levels: list[tuple[str, str]] = field(default_factory=list)  # ("I", "0-9 Points")
+    cells: dict[tuple[str, str, str], CellRange] = field(default_factory=dict)  # (ov, prv, status)
+    min_shaded: dict[tuple[str, str], bool] = field(default_factory=dict)  # (ov, prv) -> min cell shaded
+    notes: list[str] = field(default_factory=list)  # bullet notes below the grid, verbatim
+    structural: list[str] = field(default_factory=list)  # parse cannot be trusted -> pointer doc
+    review: list[str] = field(default_factory=list)  # as printed, but worth a human look
+
+    @property
+    def page(self) -> int:
+        return self.pages[0]
+
+    @property
+    def ok(self) -> bool:
+        return not self.structural
+
+
+def _grid_value(s: str) -> float | None:
+    """Numeric part of a printed maximum ("300/L" -> 300, "17*" -> 17); "L" alone -> infinity."""
+    if s == "L":
+        return float("inf")
+    m = re.match(r"^(\d+)", s)
+    return float(m.group(1)) if m else None
+
+
+def _char_lines(chars: list[dict], tol: float = 2.0) -> list[list[dict]]:
+    lines: list[list[dict]] = []
+    for c in sorted(chars, key=lambda c: (c["top"], c["x0"])):
+        if lines and abs(c["top"] - lines[-1][0]["top"]) <= tol:
+            lines[-1].append(c)
+        else:
+            lines.append([c])
+    return lines
+
+
+def _mid(c: dict) -> tuple[float, float]:
+    return (c["x0"] + c["x1"]) / 2, (c["top"] + c["bottom"]) / 2
+
+
+def _last_fill(rects: list[dict], x: float, y: float) -> dict | None:
+    """The last-painted filled rect covering (x, y) -- what the reader sees there."""
+    hit = None
+    for r in rects:
+        if r.get("fill") and r["x0"] <= x <= r["x1"] and r["top"] <= y <= r["bottom"]:
+            hit = r
+    return hit
+
+
+def _grid_page(page, pno: int) -> Grid | None:
+    """Parse one grid page; None if the page holds no grid title (the empty tab page)."""
+    chars = [c for c in page.chars if c.get("upright", True) and not c["text"].isspace()]
+    lines = [_chars_text(ln) for ln in _char_lines(chars)]
+    ti = next((i for i, t in enumerate(lines) if _GRID_TITLE_LINE.match(t)), None)
+    if ti is None:
+        if any(re.search(r"\d", t) for t in lines):
+            return Grid("?", "", "", "", (pno,), structural=[f"page {pno}: numbers on a grid page with no grid title"])
+        return None
+    tm = _GRID_TITLE_LINE.match(lines[ti])
+    g = Grid(tm.group(1), lines[ti], lines[ti + 1] if ti + 1 < len(lines) else "", tm.group(2), (pno,))
+    err = g.structural.append
+    ctx = f"SGM Grid {g.klass} (page {pno})"
+    if not g.subtitle.startswith("Includes Ranges Calculated for Habitual Offenders"):
+        err(f"{ctx}: unexpected line under the title: {g.subtitle!r}")
+
+    # --- ruling
+    vl = [ln for ln in page.lines if abs(ln["x0"] - ln["x1"]) < 1.0 and ln["bottom"] - ln["top"] > 50]
+    xs = _dedupe([ln["x0"] for ln in vl])
+    if len(xs) != 15:
+        err(f"{ctx}: expected 15 vertical rules (OV | 6 x min,max | status), found {len(xs)}: "
+            f"{[round(x, 1) for x in xs]}")
+        return g
+    left, right = xs[0], xs[-1]
+    hl = [ln for ln in page.lines if abs(ln["top"] - ln["bottom"]) < 1.0]
+    full = _dedupe([(ln["top"] + ln["bottom"]) / 2 for ln in hl if ln["x0"] <= left + 1 and ln["x1"] >= right - 1])
+    t_bottom = max(ln["bottom"] for ln in vl)
+    if full and t_bottom > full[-1] + 5:
+        full.append(t_bottom)
+    if len(full) < 3:
+        err(f"{ctx}: too few full-width rules: {full}")
+        return g
+    top, h_bot, bottom = full[0], full[1], full[-1]
+    row_ys = full[1:]
+    in_table = [c for c in chars if left - 1 <= _mid(c)[0] <= right + 1 and top < _mid(c)[1] < bottom]
+    used: set[int] = set()
+
+    def take(x0: float, x1: float, y0: float, y1: float) -> list[dict]:
+        got = [c for c in in_table if x0 <= _mid(c)[0] <= x1 and y0 < _mid(c)[1] < y1]
+        for c in got:
+            if id(c) in used:
+                err(f"{ctx}: character {c['text']!r} at ({_mid(c)[0]:.0f},{_mid(c)[1]:.0f}) falls in two cells")
+            used.add(id(c))
+        return got
+
+    # --- header
+    subs = _dedupe([(ln["top"] + ln["bottom"]) / 2 for ln in hl if top + 1 < ln["top"] < h_bot - 1
+                    and abs(ln["x0"] - xs[1]) < 2 and abs(ln["x1"] - xs[-2]) < 2])
+    if len(subs) != 1:
+        err(f"{ctx}: no single 'PRV Level' underline in the header row ({subs})")
+        return g
+    y_sub = subs[0]
+    for name, (x0, x1, y0, y1), want in (
+        ("OV header", (xs[0], xs[1], top, h_bot), "OV Level"),
+        ("PRV Level header", (xs[1], xs[-2], top, y_sub), "PRV Level"),
+        ("status header", (xs[-2], xs[-1], top, h_bot), "Offender Status"),
+    ):
+        got = _chars_text(take(x0, x1, y0, y1))
+        if got != want:
+            err(f"{ctx}: {name} reads {got!r}, expected {want!r}")
+    for k in range(6):
+        text = _chars_text(take(xs[1 + 2 * k], xs[3 + 2 * k], y_sub, h_bot))
+        m = _GRID_PRV_HEAD.match(text)
+        if not m or m.group(1) != "ABCDEF"[k]:
+            err(f"{ctx}: PRV header {k + 1} reads {text!r}")
+            return g
+        g.prv_levels.append((m.group(1), m.group(2)))
+
+    # --- rows
+    fills = [r for r in page.rects if r.get("fill")]
+    for i in range(len(row_ys) - 1):
+        y0, y1 = row_ys[i], row_ys[i + 1]
+        label = _chars_text(take(xs[0], xs[1], y0, y1))
+        m = _GRID_OV_LABEL.match(label)
+        if not m or m.group(1) != _ROMANS[i]:
+            err(f"{ctx}: OV label of row {i + 1} reads {label!r}")
+            return g
+        ov = m.group(1)
+        g.ov_levels.append((ov, f"{m.group(2)} Points"))
+
+        def bands(x0: float, x1: float) -> list[float] | None:
+            cx = (x0 + x1) / 2
+            ys = _dedupe([(ln["top"] + ln["bottom"]) / 2 for ln in hl if ln["x0"] <= cx <= ln["x1"]
+                          and y0 + 1 < ln["top"] < y1 - 1])
+            return [y0, *ys, y1] if len(ys) == 3 else None
+
+        ref: list[float] | None = None
+        for k in range(6):
+            b = bands(xs[2 + 2 * k], xs[3 + 2 * k])
+            if b is None:
+                err(f"{ctx}: OV {ov} / PRV {'ABCDEF'[k]}: max column is not split into four status rows")
+                return g
+            if ref is not None and any(abs(a - c) > 1.5 for a, c in zip(b, ref)):
+                err(f"{ctx}: OV {ov}: status rows of PRV {'ABCDEF'[k]} do not line up with PRV A")
+            ref = ref or b
+        sb = bands(xs[-2], xs[-1]) or ref  # the status column may have no rules of its own
+        for s, status in enumerate(GRID_STATUSES):
+            got = _chars_text(take(xs[-2], xs[-1], sb[s], sb[s + 1]))
+            if got != ("" if status == "base" else status):
+                err(f"{ctx}: OV {ov}: offender status row {s + 1} reads {got!r}, expected "
+                    f"{'blank' if status == 'base' else status!r}")
+        for k, (prv, _) in enumerate(g.prv_levels):
+            mx0, mx1 = xs[1 + 2 * k], xs[2 + 2 * k]
+            mn = _chars_text(take(mx0, mx1, y0, y1))
+            if not _GRID_MIN.match(mn):
+                err(f"{ctx}: OV {ov} / PRV {prv}: minimum cell reads {mn!r}")
+                continue
+            f = _last_fill(fills, (mx0 + mx1) / 2, (y0 + y1) / 2)
+            g.min_shaded[(ov, prv)] = _grid_shade(f, ctx, g.structural)
+            cx0, cx1 = xs[2 + 2 * k], xs[3 + 2 * k]
+            b = bands(cx0, cx1)
+            for s, status in enumerate(GRID_STATUSES):
+                mx = _chars_text(take(cx0, cx1, b[s], b[s + 1]))
+                if not _GRID_MAX.match(mx):
+                    err(f"{ctx}: OV {ov} / PRV {prv} / {status}: maximum reads {mx!r}")
+                    continue
+                f = _last_fill(fills, (cx0 + cx1) / 2, (b[s] + b[s + 1]) / 2)
+                g.cells[(ov, prv, status)] = CellRange(mn, mx, _grid_shade(f, ctx, g.structural))
+
+    stray = [c for c in in_table if id(c) not in used]
+    if stray:
+        err(f"{ctx}: {len(stray)} characters inside the grid are in no cell: "
+            f"{''.join(c['text'] for c in stray)[:40]!r}")
+
+    # --- text outside the table: known furniture above, bullet notes below
+    above = [_chars_text(ln) for ln in _char_lines([c for c in chars if _mid(c)[1] < top])]
+    for t in above:
+        if t not in ("Grids", "Sentencing Grids", g.title, g.subtitle):
+            err(f"{ctx}: unexpected text above the grid: {t!r}")
+    paras: list[list[dict]] = []
+    for ln in _char_lines([c for c in chars if _mid(c)[1] > bottom]):
+        first = min(ln, key=lambda c: c["x0"])["text"]
+        if first == _GRID_NOTE_START:
+            paras.append([c for c in ln if c is not min(ln, key=lambda c: c["x0"])])
+        elif paras:
+            paras[-1].extend(ln)
+        else:
+            err(f"{ctx}: text below the grid before any bullet: {_chars_text(ln)!r}")
+    g.notes = [_chars_text(p) for p in paras]
+    return g
+
+
+def _grid_shade(rect: dict | None, ctx: str, structural: list[str]) -> bool:
+    if rect is None or _is_gray_fill(rect, 0.99, 1.0):
+        return False
+    if _is_gray_fill(rect, 0.72, 0.95):
+        return True
+    structural.append(f"{ctx}: unrecognized fill {rect.get('non_stroking_color')!r} at "
+                      f"({rect['x0']:.0f},{rect['top']:.0f}); cannot tell whether that cell is shaded")
+    return False
+
+
+def _validate_grid(g: Grid) -> None:
+    """Completeness (structural) and consistency (review) checks on a parsed grid."""
+    ctx = f"SGM Grid {g.klass} (page {g.page})"
+    prvs = [p for p, _ in g.prv_levels]
+    ovs = [o for o, _ in g.ov_levels]
+    missing = [(o, p, s) for o in ovs for p in prvs for s in GRID_STATUSES if (o, p, s) not in g.cells]
+    if not ovs or len(prvs) != 6:
+        g.structural.append(f"{ctx}: {len(ovs)} OV levels, {len(prvs)} PRV levels")
+    if missing:
+        g.structural.append(f"{ctx}: {len(missing)} cells missing, e.g. {missing[:3]}")
+        return
+    legend = any("Intermediate sanction cells are marked by asterisks" in n for n in g.notes)
+    straddle = any("straddle cells are shaded" in n for n in g.notes)
+    stars = [k for k, c in g.cells.items() if c.max.endswith("*")]
+    shaded = [k for k, c in g.cells.items() if c.shaded] + [k for k, v in g.min_shaded.items() if v]
+    if stars and not legend:
+        g.structural.append(f"{ctx}: asterisked cells but no intermediate-sanction legend below the grid")
+    if shaded and not straddle:
+        g.structural.append(f"{ctx}: shaded cells but no straddle-cell legend below the grid")
+
+    for o in ovs:
+        for p in prvs:
+            cs = [g.cells[(o, p, s)] for s in GRID_STATUSES]
+            vals = [_grid_value(c.max) for c in cs]
+            if any(b < a for a, b in zip(vals, vals[1:])):
+                g.structural.append(f"{ctx}: OV {o} / PRV {p}: maxima decrease across offender status "
+                                    f"{[c.max for c in cs]}")
+            for s, c in zip(GRID_STATUSES, cs):
+                if float(c.min) > _grid_value(c.max):
+                    g.structural.append(f"{ctx}: OV {o} / PRV {p} / {s}: minimum {c.min} above maximum {c.max}")
+            # habitual-offender maxima: MCL 777.21(3)(a)-(c) raise the upper limit by 25/50/100 %, and the
+            # manual's own note says the results are rounded down to the whole month
+            base = cs[0].max
+            bv = _grid_value(base)
+            if bv is not None and bv != float("inf"):
+                for s, c, pct in zip(GRID_STATUSES[1:], cs[1:], (125, 150, 200)):
+                    exp = int(bv) * pct // 100
+                    if _grid_value(c.max) != exp or c.max.endswith("/L") != base.endswith("/L"):
+                        g.review.append(f"{ctx}: OV {o} / PRV {p} / {s}: printed {c.max}, but base {base} "
+                                        f"+{pct - 100}% rounded down is {exp}{'/L' if base.endswith('/L') else ''}")
+            # the manual's definitions of the cell kinds (Step IV): intermediate sanction = upper limit 18
+            # months or less (asterisk); straddle = lower limit one year or less and upper limit more than
+            # 18 months (shaded); prison = the rest (unmarked)
+            for s, c in zip(GRID_STATUSES, cs):
+                lo, hi = float(c.min), _grid_value(c.max)
+                expect = "intermediate" if hi <= 18 else ("straddle" if lo <= 12 else "prison")
+                printed = ("intermediate" if c.max.endswith("*") else "straddle" if c.shaded else "prison")
+                if c.max.endswith("*") and c.shaded:
+                    printed = "asterisked and shaded"
+                if printed != expect:
+                    g.review.append(f"{ctx}: OV {o} / PRV {p} / {s}: {c.min}-{c.max} is printed as {printed}, "
+                                    f"but its numbers make it {expect}")
+            if g.min_shaded.get((o, p)) != all(c.shaded for c in cs):
+                verb = "is" if g.min_shaded.get((o, p)) else "is not"
+                g.review.append(f"{ctx}: OV {o} / PRV {p}: minimum cell {verb}"
+                                f" shaded, maxima shaded: {[c.shaded for c in cs]}")
+    # monotonic across the grid (review only: the manual is what it is)
+    for s in GRID_STATUSES:
+        for o in ovs:
+            for a, b in zip(prvs, prvs[1:]):
+                ca, cb = g.cells[(o, a, s)], g.cells[(o, b, s)]
+                if _grid_value(cb.max) < _grid_value(ca.max) or int(cb.min) < int(ca.min):
+                    g.review.append(f"{ctx}: {s}, OV {o}: PRV {a} {ca.min}-{ca.max} > PRV {b} {cb.min}-{cb.max}")
+        for p in prvs:
+            for a, b in zip(ovs, ovs[1:]):
+                ca, cb = g.cells[(a, p, s)], g.cells[(b, p, s)]
+                if _grid_value(cb.max) < _grid_value(ca.max) or int(cb.min) < int(ca.min):
+                    g.review.append(f"{ctx}: {s}, PRV {p}: OV {a} {ca.min}-{ca.max} > OV {b} {cb.min}-{cb.max}")
+    # Step IV: "every cell in the sentencing grids for class G and class H offenses is either an intermediate
+    # sanction cell or a straddle cell. The sentencing grids for M2 and class A offenses are the only grids
+    # that do not contain intermediate sanction cells or straddle cells."
+    marked = [k for k, c in g.cells.items() if c.max.endswith("*") or c.shaded]
+    if g.klass in ("G", "H") and len(marked) != len(g.cells):
+        g.review.append(f"{ctx}: {len(g.cells) - len(marked)} unmarked (prison) cells in a class {g.klass} grid")
+    if g.klass in ("M2", "A") and marked:
+        g.review.append(f"{ctx}: {len(marked)} marked cells in a class {g.klass} grid")
+    if g.klass not in ("M2", "A", "G", "H") and not marked:
+        g.review.append(f"{ctx}: no intermediate sanction or straddle cells")
+
+
+def parse_grids(pdf, pages: tuple[int, int]) -> list[Grid]:
+    """Parse the sentencing grids on ``pages`` (1-based, inclusive) of an open pdfplumber document."""
+    grids: list[Grid] = []
+    for pno in range(pages[0], pages[1] + 1):
+        page = pdf.pages[pno - 1]
+        g = _grid_page(page, pno)
+        page.close()
+        if g is None:
+            continue
+        if g.ok:
+            _validate_grid(g)
+        grids.append(g)
+    seen = [g.klass for g in grids]
+    for k in FELONY_CLASSES:
+        if seen.count(k) != 1:
+            extra = Grid(k, "", "", "", (), structural=[f"SGM Grid {k}: found {seen.count(k)} times on pages "
+                                                        f"{[g.page for g in grids if g.klass == k]}"])
+            grids.append(extra)
+    return grids
+
+
+def _md_table(g: Grid, status: str) -> str:
+    head = "| OV level | " + " | ".join(f"PRV {p} ({pts})" for p, pts in g.prv_levels) + " |"
+    sep = "|---" * (len(g.prv_levels) + 1) + "|"
+    rows = []
+    for o, pts in g.ov_levels:
+        cells = []
+        for p, _ in g.prv_levels:
+            c = g.cells[(o, p, status)]
+            cells.append(f"{c.min}–{c.max}" + (" [shaded]" if c.shaded else ""))
+        rows.append(f"| {o} ({pts}) | " + " | ".join(cells) + " |")
+    return "\n".join([head, sep, *rows])
+
+
+def grid_text(g: Grid, units_quote: str | None) -> str:
+    if not g.ok:
+        return f"This grid could not be extracted reliably; see the PDF page {g.page}." if g.pages else \
+            "This grid could not be located in the manual."
+    out = [g.title, g.subtitle, ""]
+    if units_quote:
+        out.append(f"The manual (SGM Instructions Step IV): \"{units_quote}\"")
+    out.append("Each cell is shown as \"minimum–maximum\": the left number of the grid cell (printed once for all "
+               "offender statuses) and the right number printed on that offender status's row, exactly as "
+               "printed (\"*\" and \"/L\" included). [shaded] = that part of the cell is shaded in the manual.")
+    names = {"base": "Base (no habitual offender status)", "HO2": "HO2", "HO3": "HO3", "HO4": "HO4"}
+    for s in GRID_STATUSES:
+        out += ["", f"## {names[s]}", "", _md_table(g, s)]
+    if g.notes:
+        out += ["", "## Notes printed below the grid", ""] + [f"• {n}" for n in g.notes]
+    return "\n".join(out)
+
+
+# --------------------------------------------------------------------------------------------------
 # sources
 
 
@@ -1142,6 +1546,7 @@ class _SgmSourceBase:
         Shading / amendments / numerical-vs-alphabetical disagreements are not failures; the rows are
         stored as printed and each disagreement is appended to ``report.warnings`` for human review."""
         m = self._ensure()
+        report.warnings.extend(f"SGM grids, check against the PDF: {x}" for g in m.grids for x in g.review)
         fl = m.felony
         if fl is None or fl.structural:
             report.warnings.append(

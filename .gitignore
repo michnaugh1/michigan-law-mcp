@@ -5,3 +5,5 @@ __pycache__/
 *.sqlite3
 *.sqlite3-*
 .env
+.venv/
+tests/data/court_rules/*/sgm/sgm.pdf

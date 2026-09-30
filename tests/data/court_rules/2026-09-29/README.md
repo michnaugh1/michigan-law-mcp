@@ -13,3 +13,5 @@ These files were retrieved by hand during research on 2026-09-29.
 | `cji/M_Crim_JI_5.1_…htm` | one instruction page | only sample so far; more needed (see plan) |
 | `sgm/sentencing-guidelines-manuals.api.excerpt.json` | content-API JSON for the manuals page | **excerpt**: mainBody trimmed to the preamble, Current Version, and first two Former Versions |
 | `sgm/sgm.pdf` | Sentencing Guidelines Manual 2026, current through 5/20/2026 | **not committed** (8.7 MB); see `SHA256SUMS`. Tests that need it skip when it is absent. Put the file here by hand. |
+| `catalog.children.excerpt.json` | children of "Current Rules, Administrative Orders and Jury Instructions" | **reconstructed** from the API listing (name + contentLink.url only) |
+| `cji/model-criminal-jury-instructions.api.excerpt.json` | M Crim JI page | **reconstructed**: the two asset URLs the page links; link text is a placeholder |

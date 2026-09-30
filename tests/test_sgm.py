@@ -356,3 +356,231 @@ def test_ingest(conn, src):
     assert "Predatory conduct was involved." in d["text"]
     assert d["provenance"]["source_url"].endswith("#page=56")
     assert get_document(conn, "sgm prv 1")["citation"] == "SGM PRV 1"
+
+
+# ---------------------------------------------------------------------------------------------- felony list
+
+
+@pytest.fixture(scope="module")
+def felony(manual):
+    return manual.felony
+
+
+def _rows(felony, raw_cite):
+    return [r for r in felony.rows if r.raw_cite == raw_cite]
+
+
+def _one(felony, raw_cite):
+    got = _rows(felony, raw_cite)
+    assert len(got) == 1, (raw_cite, got)
+    return got[0]
+
+
+@needs_pdf
+def test_felony_list_counts_and_value_sets(felony):
+    rows = felony.rows
+    shaded = [r for r in rows if not r.current]
+    print(f"\nfelony list: {len(rows)} numerical rows ({len(shaded)} shaded), "
+          f"{len(felony.alphabetical)} alphabetical rows")
+    print("categories:", sorted({r.category for r in rows}))
+    print("classes:", sorted({r.offense_class for r in rows}))
+    assert felony.structural == []
+    # the numerical list (pp. 135-174) is the data; the alphabetical list (pp. 175-212) reprints the same
+    # rows and agrees with it row for row (see test_felony_review_notes for the one wording difference)
+    assert len(rows) == 1542 and len(felony.alphabetical) == 1542
+    assert len(shaded) == 384 and sum(not r.current for r in felony.alphabetical) == 384
+    assert {r.page for r in rows} == set(range(135, 175))
+    assert {r.page for r in felony.alphabetical} == set(range(175, 213))
+    assert {r.category for r in rows} == {"Person", "Property", "CS", "Pub ord", "Pub saf", "Pub trst", "Variable"}
+    assert {r.offense_class for r in rows} == {"M2", "A", "B", "C", "D", "E", "F", "G", "H", "SPEC", "Variable", "I"}
+    assert all(r.listed_in and re.fullmatch(r"MCL 777\.1\d[a-z]{0,2}", r.listed_in) for r in rows)
+    assert all(r.listed_in is None for r in felony.alphabetical)
+    assert all(normalize_citation(r.mcl_citation).canonical == r.mcl_citation for r in rows)
+    # class "I" is printed only on two shaded MIOSHA rows; M2 only for second-degree murder
+    assert [(r.raw_cite, r.current) for r in rows if r.offense_class == "I"] == [
+        ("MCL 408.1035(5)", False), ("MCL 408.1035a(5)", False)]
+    assert [(r.raw_cite, r.category, r.stat_max) for r in rows if r.offense_class == "M2"] == [
+        ("MCL 750.317", "Person", "LIFE")]
+
+
+@needs_pdf
+def test_felony_review_notes(felony):
+    """Disagreements are reported for a human, never resolved: shading vs the amendments column, and the
+    numerical vs the alphabetical printing."""
+    notes = felony.review
+    for n in notes:
+        print("review:", n)
+    assert len(notes) == 8
+    assert any(n.startswith("page 149, MCL 445.67 (class E): not shaded") and "replaced, 2010 PA 317" in n
+               for n in notes)
+    for cite in ("MCL 257.625n(10)", "MCL 333.7402(2)(a)", "MCL 750.116", "MCL 750.335a(2)(c)"):
+        assert any(cite in n and "shaded (not current)" in n for n in notes), cite
+    assert sum(n.startswith("MCL 750.492a(1)(a) ") for n in notes) == 2  # "placement false" vs "placement of false"
+    assert any("MCL 750.181(5)" in n and "Stat Max cell is blank" in n for n in notes)
+
+
+@needs_pdf
+def test_felony_page_135_shading(felony):
+    p135 = [r for r in felony.rows if r.page == 135]
+    assert [r.raw_cite for r in p135 if not r.current] == [
+        "MCL 18.366(1)", "MCL 18.1268(9)", "MCL 28.295(1)(a)", "MCL 28.422", "MCL 28.425o(3)(c)", "MCL 28.454(1)"]
+    for cite in ("MCL 4.421(1)", "MCL 4.421(2)", "MCL 15.324(1)(d)", "MCL 18.366(1)(c)", "MCL 18.366(1)(d)",
+                 "MCL 21.154", "MCL 28.214(6)(b)", "MCL 28.293(1)"):
+        assert _one(felony, cite).current is True, cite
+    # every shaded row on p.135 says so in the amendments column too
+    assert all(re.search(r"deleted|replaced", r.amendments, re.I) for r in p135 if not r.current)
+    # 28.295(1)(a) is printed twice: the old class H row (shaded) and the current class D row
+    assert [(r.offense_class, r.current) for r in _rows(felony, "MCL 28.295(1)(a)")] == [("H", False), ("D", True)]
+
+
+@needs_pdf
+def test_felony_page_135_values(felony):
+    r = _one(felony, "MCL 4.421(1)")
+    assert (r.mcl_citation, r.listed_in, r.category, r.offense_class, r.description, r.stat_max, r.amendments) == (
+        "MCL 4.421", "MCL 777.11a", "Pub trst", "G", "Lobbyists – compensation contingent on outcome of action", "3", "")
+    r = _one(felony, "MCL 18.366(1)")
+    assert (r.category, r.offense_class, r.stat_max, r.current) == ("Property", "E", "10", False)
+    assert r.description == "False presentation to crime victim services commission to obtain more than $100"
+    assert r.amendments == "Deleted, 2001 PA 150 & 154, Eff. 1/1/2002"  # wrapped onto two lines
+    r = _one(felony, "MCL 28.425o(3)(c)")
+    assert (r.mcl_citation, r.listed_in, r.category, r.offense_class, r.stat_max, r.current) == (
+        "MCL 28.425o", "MCL 777.11b", "Pub saf", "F", "4", False)
+    assert r.description == "Carrying concealed pistol in prohibited place – third or subsequent offense"
+    assert r.amendments == "7/1/2001; replaced, 2012 PA 124, Eff. 8/6/2012"
+    assert _one(felony, "MCL 18.1268(9)").stat_max == "Fine"
+    assert _one(felony, "MCL 28.295(5)").stat_max == "Variable"
+    # a three-line description, joined
+    assert _one(felony, "MCL 28.295(2)").description == (
+        "Selling counterfeited or forged state ID card or possessing counterfeited or forged state ID card with "
+        "intent to deliver to another person or possessing 2 or more counterfeited or forged state ID cards")
+    # the cite is kept as printed (with its stray space); the section is still recognized
+    r = _one(felony, "MCL 28.468(1) (c)")
+    assert (r.mcl_citation, r.offense_class) == ("MCL 28.468", "E")
+
+
+@needs_pdf
+def test_felony_hand_checked_sections(felony):
+    """Values read off the rendered pages 144, 145, 155, 156 and 171."""
+    def summary(section):
+        return [(r.raw_cite, r.category, r.offense_class, r.stat_max, r.current)
+                for r in felony.rows if r.mcl_citation == section]
+
+    for section in ("MCL 750.81", "MCL 750.84", "MCL 750.520b", "MCL 333.7401"):
+        print(section, summary(section))
+    assert summary("MCL 750.81") == [
+        ("MCL 750.81(4)", "Person", "G", "2", False),
+        ("MCL 750.81(4)", "Person", "G", "2", False),
+        ("MCL 750.81(4)", "Person", "E", "5", False),
+        ("MCL 750.81(5)", "Person", "E", "5", True),
+    ]
+    assert summary("MCL 750.84") == [
+        ("MCL 750.84(1)(a)", "Person", "D", "10", True),
+        ("MCL 750.84(1)(b)", "Person", "D", "10", True),
+    ]
+    assert _one(felony, "MCL 750.84(1)(b)").description == "Assault by strangulation or suffocation"
+    assert summary("MCL 750.520b") == [("MCL 750.520b(2)", "Person", "A", "LIFE", True)]
+    cs = summary("MCL 333.7401")
+    assert len(cs) == 24 and all(c[1] == "CS" for c in cs)
+    current = [c[:4] for c in cs if c[4]]
+    assert current == [
+        ("MCL 333.7401(2)(a)(i)", "CS", "A", "LIFE"), ("MCL 333.7401(2)(a)(ii)", "CS", "A", "30"),
+        ("MCL 333.7401(2)(a)(iii)", "CS", "B", "20"), ("MCL 333.7401(2)(a)(iv)", "CS", "D", "20"),
+        ("MCL 333.7401(2)(b)(i)", "CS", "B", "20"), ("MCL 333.7401(2)(b)(ii)", "CS", "E", "7"),
+        ("MCL 333.7401(2)(c)", "CS", "F", "4"), ("MCL 333.7401(2)(d)(i)", "CS", "C", "15"),
+        ("MCL 333.7401(2)(d)(ii)", "CS", "D", "7"), ("MCL 333.7401(2)(d)(iii)", "CS", "F", "4"),
+        ("MCL 333.7401(2)(e)", "CS", "G", "2"), ("MCL 333.7401(2)(f)", "CS", "D", "7"),
+    ]
+    # the last row of p.144 sits below a rule drawn only across the group column; it must not be lost
+    assert [(r.page, r.current, r.description) for r in _rows(felony, "MCL 333.7401(2)(d)(ii)")] == [
+        (144, False, "Delivery or manufacture of 5-45 kilos of marijuana"),
+        (145, True, "Delivery or manufacture of 5 or more but less than 45 kilograms of marihuana or synthetic "
+                    "equivalents of marihuana"),
+    ]
+
+
+@needs_pdf
+def test_felony_layout_edge_cases(felony):
+    # SPEC rows under MCL 777.18, "Variable" stat max
+    spec = [r for r in felony.rows if r.raw_cite == "MCL 333.7410"]
+    assert len(spec) == 4 and {(r.offense_class, r.listed_in, r.stat_max) for r in spec} == {
+        ("SPEC", "MCL 777.18", "Variable")}
+    # two-letter group bars that overflow the narrow label column
+    assert {r.listed_in for r in felony.rows} >= {"MCL 777.16aa", "MCL 777.16bb"}
+    # a word the manual hyphenates at the cell edge is rejoined ("dam-" / "age")
+    assert _one(felony, "MCL 750.210(2)(b)").description == (
+        "Possessing or carrying an explosive or combustible substance causing property damage")
+    # "Vari-" / "able" in the narrow class column
+    assert _one(felony, "MCL 750.213a(3)(a)").offense_class == "Variable"
+    # cells that pdfplumber's word grouping glued together ("VariableReplaced,") stay separate
+    assert spec[0].stat_max == "Variable" and spec[0].amendments.startswith("Replaced, 2000 PA 279")
+    # footnote asterisk kept on the printed cite
+    assert _one(felony, "MCL 333.7407(1)(g)*").mcl_citation == "MCL 333.7407"
+
+
+def _fake_source(rows, structural=(), review=()):
+    src = sgm.SgmFilesSource.__new__(sgm.SgmFilesSource)
+    src.manual = sgm.SgmManual(docs=[], current_through="2026-05-20", edition_label=None, grid_pages=(1, 1),
+                               felony_list_pages=(2, 2),
+                               felony=sgm.FelonyList(list(rows), [], list(structural), list(review)))
+    src.currency = "SGM 2026 (current through 2026-05-20)"
+    src.warnings = []
+    return src
+
+
+def _frow(raw="MCL 750.84(1)(a)", cls="D", current=True):
+    return sgm.FelonyRow(raw_cite=raw, mcl_citation=normalize_citation(raw).canonical, listed_in="MCL 777.16d",
+                         category="Person", offense_class=cls, description="d", stat_max="10", amendments="",
+                         current=current, page=156)
+
+
+def test_apply_extras_replaces_rows_and_reports_review(conn):
+    from mlaw.pipeline import RunReport
+
+    rep = RunReport(run_id=0, source="sgm-files")
+    _fake_source([_frow(), _frow("MCL 750.84(1)(b)")], review=["page 1, x: disagreement"]).apply_extras(conn, rep)
+    _fake_source([_frow(cls="C")]).apply_extras(conn, rep)
+    got = [tuple(r) for r in conn.execute(
+        "SELECT mcl_citation, raw_cite, offense_class, current, edition FROM sentencing_offenses")]
+    assert got == [("MCL 750.84", "MCL 750.84(1)(a)", "C", 1, "SGM 2026 (current through 2026-05-20)")]
+    assert rep.warnings == ["SGM felony list, check against the PDF: page 1, x: disagreement"]
+
+
+def test_apply_extras_keeps_old_rows_on_structural_failure(conn):
+    from mlaw.pipeline import RunReport
+
+    rep = RunReport(run_id=0, source="sgm-files")
+    _fake_source([_frow(), _frow("MCL 750.84(1)(b)")]).apply_extras(conn, rep)
+    _fake_source([_frow(cls="C")], structural=["felony list page 150: no offense rows parsed"]).apply_extras(conn, rep)
+    assert conn.execute("SELECT COUNT(*) FROM sentencing_offenses").fetchone()[0] == 2
+    assert len(rep.warnings) == 1 and rep.warnings[0].startswith("sentencing_offenses NOT updated")
+    assert "page 150" in rep.warnings[0]
+
+
+@needs_pdf
+def test_felony_ingest_and_lookup(conn, src):
+    from conftest import DAY1, FIX
+    from mlaw.service import get_sentencing_class
+    from mlaw.sources.fixture import FixtureSource
+
+    run_ingest(conn, FixtureSource(FIX / "day1"), now=DAY1)  # MCL 750.84 / 257.627a documents
+    r = run_ingest(conn, src, now="2026-09-29T06:00:00Z")
+    assert conn.execute("SELECT COUNT(*) FROM sentencing_offenses").fetchone()[0] == 1542
+    assert {e for (e,) in conn.execute("SELECT DISTINCT edition FROM sentencing_offenses")} == {src.currency}
+    assert len(r.warnings) == len(src.manual.felony.review) == 8
+
+    res = get_sentencing_class(conn, "MCL 750.84")
+    assert res["listed"] is True and res["count"] == 2
+    assert [(x["raw_cite"], x["class"], x["grid"], x["category"]) for x in res["rows"]] == [
+        ("MCL 750.84(1)(a)", "D", "SGM Grid D", "Person"), ("MCL 750.84(1)(b)", "D", "SGM Grid D", "Person")]
+    assert res["rows"][0]["source_url"].endswith("sgm.pdf#page=156")
+    assert res["provenance"]["edition"] == src.currency and res["provenance"]["notice"]
+    assert res["provenance"]["last_loaded"] == "2026-09-29T06:00:00Z"
+
+    d = get_document(conn, "MCL 750.84")
+    assert [(x["raw_cite"], x["grid"]) for x in d["sentencing"]] == [
+        ("MCL 750.84(1)(a)", "SGM Grid D"), ("MCL 750.84(1)(b)", "SGM Grid D")]
+    assert "sentencing" not in get_document(conn, "MCL 257.627a")  # not a guidelines felony
+
+    run_ingest(conn, src, now="2026-09-30T06:00:00Z")  # replaces, never appends
+    assert conn.execute("SELECT COUNT(*) FROM sentencing_offenses").fetchone()[0] == 1542
+    assert get_sentencing_class(conn, "750.84")["count"] == 2

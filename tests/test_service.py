@@ -170,3 +170,67 @@ def test_provenance_currency_comes_from_the_crawler_that_produced_the_version(co
     run_ingest(conn, Src(), now="2026-09-29T06:00:00Z")
     got = get_document(conn, "MRE 609")
     assert got["provenance"]["source_currency"] == "MRE updated with MSC order(s) effective 2026-01-28"
+
+
+# ---------------------------------------------------------------------------------------------- sentencing
+
+
+def _add_offenses(conn, rows, edition="SGM 2026 (current through 2026-05-20)"):
+    conn.executemany(
+        "INSERT INTO sentencing_offenses (mcl_citation, raw_cite, listed_in, category, offense_class, description,"
+        " stat_max, amendments, current, page, edition) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        [(*r, edition) for r in rows],
+    )
+
+
+def test_get_sentencing_class_not_loaded_and_not_listed(loaded):
+    r = service.get_sentencing_class(loaded, "MCL 750.84")
+    assert r["listed"] is False and r["rows"] == [] and "has not been loaded" in r["message"]
+    _add_offenses(loaded, [("MCL 750.84", "MCL 750.84(1)(a)", "MCL 777.16d", "Person", "D", "AWIGBH", "10", "", 1, 156)])
+    r = service.get_sentencing_class(loaded, "MCL 257.627a")
+    assert r["listed"] is False and r["count"] == 0
+    assert "is not in the sentencing guidelines felony list" in r["message"]
+    assert r["provenance"]["edition"] == "SGM 2026 (current through 2026-05-20)" and r["provenance"]["notice"]
+    with pytest.raises(ValueError, match="not an MCL section"):
+        service.get_sentencing_class(loaded, "MCR 6.110")
+    with pytest.raises(ValueError, match="Could not recognize"):
+        service.get_sentencing_class(loaded, "assault")
+
+
+def test_get_sentencing_class_rows_order_grid_and_subsections(loaded):
+    _add_offenses(loaded, [
+        ("MCL 750.81", "MCL 750.81(4)", "MCL 777.16d", "Person", "G", "Domestic assault – third offense", "2",
+         "Replaced, 2000 PA 279, Eff. 10/1/2000", 0, 155),
+        ("MCL 750.81", "MCL 750.81(5)", "MCL 777.16d", "Person", "E", "Domestic assault with priors", "5",
+         "2016 PA 88, Eff. 7/25/2016", 1, 155),
+        ("MCL 333.7410", "MCL 333.7410", "MCL 777.18", "CS", "SPEC", "Near school", "Variable", "", 1, 146),
+    ])
+    for cite in ("MCL 750.81", "750.81", "mcl 750.81(5)"):
+        r = service.get_sentencing_class(loaded, cite)
+        assert r["citation"] == "MCL 750.81" and r["listed"] is True and r["count"] == 2
+        assert [(x["raw_cite"], x["current"], x["class"], x["grid"]) for x in r["rows"]] == [
+            ("MCL 750.81(5)", True, "E", "SGM Grid E"), ("MCL 750.81(4)", False, "G", "SGM Grid G")]  # current first
+        assert r["matched_raw_cites"] == ["MCL 750.81(4)", "MCL 750.81(5)"]
+        assert "Lockridge" in r["note"] and r["provenance"]["notice"]
+    r = service.get_sentencing_class(loaded, "MCL 750.81(5)")
+    assert r["requested_subsection"] == "(5)"
+    assert [x["subsection_match"] for x in r["rows"]] == ["exact", "other"]
+    assert r["matched_subsection_cites"] == ["MCL 750.81(5)"]
+    assert service.get_sentencing_class(loaded, "MCL 750.81")["rows"][0]["subsection_match"] is None
+    spec = service.get_sentencing_class(loaded, "MCL 333.7410")["rows"][0]
+    assert spec["grid"] is None and "not one of the grid classes" in spec["grid_note"]
+
+
+def test_get_document_sentencing_field_only_when_listed(loaded):
+    assert "sentencing" not in service.get_document(loaded, "MCL 750.84")
+    _add_offenses(loaded, [
+        ("MCL 750.84", "MCL 750.84(1)(b)", "MCL 777.16d", "Person", "D", "Strangulation", "10", "", 1, 156),
+        ("MCL 750.84", "MCL 750.84(1)(a)", "MCL 777.16d", "Person", "D", "AWIGBH", "10", "", 1, 156),
+    ])
+    d = service.get_document(loaded, "MCL 750.84")
+    assert [(x["raw_cite"], x["class"], x["grid"], x["category"], x["current"]) for x in d["sentencing"]] == [
+        ("MCL 750.84(1)(b)", "D", "SGM Grid D", "Person", True), ("MCL 750.84(1)(a)", "D", "SGM Grid D", "Person", True)]
+    assert "SGM 2026" in d["sentencing_source"]
+    assert "sentencing" not in service.get_document(loaded, "MCL 257.627a")
+    old = service.get_document(loaded, "MCL 750.84", as_of="2026-09-20")
+    assert len(old["sentencing"]) == 2

@@ -8,8 +8,10 @@ This module turns the *text* parts of it into citable units:
 * ``SGM OV 1``  .. ``SGM OV 20``               Offense Variables (each OV is printed once per offense
                                                group that scores it; the copies must agree -- see below)
 
-The sentencing grids and the felony lists are *not* parsed here (later tasks), but their PDF page
-ranges are located and exposed on :class:`SgmManual` so those tasks can reuse this module.
+It also parses the felony list at the back of the manual (``SgmManual.felony``, see "felony list"
+below) into rows for the ``sentencing_offenses`` table -- offense class and category per MCL cite -- which
+the pipeline stores through :meth:`_SgmSourceBase.apply_extras`. The sentencing grids are *not* parsed
+here, but their PDF page range is located and exposed on :class:`SgmManual`.
 
 Why pdfplumber and not only ``pdftotext -layout``
     The layout text loses exactly the information that matters for quoting this manual accurately:
@@ -57,7 +59,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from ..citations import normalize_citation
+from ..citations import MCL_TOKEN, normalize_citation
 from ..models import ParsedDoc, ParsedPublicAct, ParsedRange
 
 DEFAULT_URL = (
@@ -86,6 +88,7 @@ class SgmManual:
     # OVs whose copies differ between groups: OV number -> {group: title + text}. In ``docs`` such an OV is
     # one unit holding every distinct version, each under "== Version for: <groups> ==".
     ov_variants: dict[int, dict[str, str]] = field(default_factory=dict)
+    felony: FelonyList | None = None  # the parsed felony list (its structural warnings are also in warnings)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -657,7 +660,9 @@ def parse_manual(path: str | Path, url: str = DEFAULT_URL, edition_label: str | 
             lines, _ = _page_lines(page, i + 1)
             parser.feed_page(lines, i + 1, float(page.height))
             page.close()
+        felony = parse_felony_list(pdf, felony_pages)
     parser.finish()
+    warnings.extend(felony.structural)
 
     # PRVs and Steps: exactly one each
     docs: list[ParsedDoc] = []
@@ -732,7 +737,351 @@ def parse_manual(path: str | Path, url: str = DEFAULT_URL, edition_label: str | 
 
     return SgmManual(docs=docs, current_through=current, edition_label=edition_label, grid_pages=grid_pages,
                      felony_list_pages=felony_pages, warnings=warnings, ov_groups=ov_groups,
-                     ov_variants=ov_variants)
+                     ov_variants=ov_variants, felony=felony)
+
+
+# --------------------------------------------------------------------------------------------------
+# felony list ("MCL # Felony List", "Numerical Felony List")
+#
+# Layout (2026 manual, verified by rendering the pages): one ruled table per page. Every row, group bar
+# and the header row is bounded by full-width horizontal rules, and the header row's cells by vertical
+# rules, so the table geometry is read from the drawing instead of guessed from text positions:
+#
+#   * row boundaries  = the full-width horizontal rules (a wrapped description stays inside its row);
+#   * column bounds   = the vertical rules crossing the header row ("Felonies by MCL #" | "Category" |
+#                       "Class" | "Description*" | "Stat Max" | "Date Offense Added/ Substantive
+#                       Amendments**"), checked against the header words themselves;
+#   * group bars      = rows filled mid-gray (0.5) whose only text is "MCL 777.11a" etc. in the narrow
+#                       left column -- the MCL 777.1x list the offenses below come from (``listed_in``);
+#   * shaded rows     = rows whose cells sit on a light-gray fill (0.847 gray, a single-channel color --
+#                       which is why the RGB-only check used for the OV tables does not see it). The page
+#                       footnote: "Lightly shaded lines indicate that the statute governing the felony
+#                       offense described there is no longer current." Matched by geometry: a fill rect
+#                       that covers the row's vertical middle and spans the MCL-cite cell.
+#
+# Everything above the header row (running header, "Numerical Felony List" title) and below the last rule
+# (the footnote block, page number) is outside the table and ignored -- but any *word* inside the table
+# box that does not land in a row/column is a structural warning, never silently dropped.
+
+# Offense classes that select a sentencing grid ("SGM Grid <class>").
+FELONY_CLASSES = ("M2", "A", "B", "C", "D", "E", "F", "G", "H")
+# Other values the 2026 manual prints in the Class column, kept exactly as printed and never mapped to a
+# grid: "SPEC" (the MCL 777.18 offenses and MCL 750.462f(3)), "Variable" (MCL 750.213a(3)(a)), and "I"
+# (only on two shaded, no-longer-current MIOSHA rows). Anything else is a structural parse failure.
+FELONY_OTHER_CLASSES = ("SPEC", "Variable")
+FELONY_OLD_CLASSES = ("I",)  # accepted only on shaded (not current) rows
+# The Category column's printed values (2026); "Variable" = the computer-crime rows whose category follows
+# the underlying offense (MCL 750.145d(2), 752.797(3)). Anything else is a structural parse failure.
+FELONY_CATEGORIES = ("Person", "Property", "CS", "Pub ord", "Pub saf", "Pub trst", "Variable")
+_FELONY_COLS = ("cite", "category", "class", "description", "stat_max", "amendments")
+# A word of the header row that must fall inside each column.
+_FELONY_HEADER_WORDS = {"cite": "Felonies", "category": "Category", "class": "Class",
+                        "description": "Description*", "stat_max": "Stat", "amendments": "Date"}
+_FELONY_CITE = re.compile(rf"^MCL\s+({MCL_TOKEN})((?:\s?\([0-9A-Za-z]{{1,5}}\))*)(\*?)$")
+_GROUP_LABEL = re.compile(r"^MCL\s+777\.1\d[a-z]{0,2}$")  # 777.11a .. 777.16bb, 777.18
+_NOT_CURRENT_WORDS = re.compile(r"deleted|replaced|repealed", re.I)
+
+
+@dataclass
+class FelonyRow:
+    raw_cite: str  # as printed, e.g. "MCL 28.425o(3)(c)"
+    mcl_citation: str  # canonical section, e.g. "MCL 28.425o"
+    listed_in: str | None  # group bar above the row, e.g. "MCL 777.11b"
+    category: str  # as printed, e.g. "Pub saf"
+    offense_class: str  # M2 | A .. H
+    description: str
+    stat_max: str  # as printed: "10", "Life", "Fine", "Variable", ...
+    amendments: str
+    current: bool  # False = the row is shaded (statute no longer current)
+    page: int  # 1-based PDF page
+
+
+def _is_gray_fill(rect: dict, lo: float, hi: float) -> bool:
+    """A filled rect whose gray (single-channel, or equal-RGB) color is within [lo, hi]."""
+    if not rect.get("fill"):
+        return False
+    c = rect.get("non_stroking_color")
+    if isinstance(c, (int, float)):
+        vals = [float(c)]
+    elif isinstance(c, (tuple, list)) and len(c) in (1, 3) and all(isinstance(v, (int, float)) for v in c):
+        vals = [float(v) for v in c]
+        if max(vals) - min(vals) > 0.02:
+            return False
+    else:
+        return False
+    return all(lo <= v <= hi for v in vals)
+
+
+# A line ending "dam-" followed by a line starting "age" is a word broken at the cell edge (the manual
+# hyphenates to fit its narrow cells); the hyphen is dropped. Anything else that ends in "-" or "/" stays
+# glued without a space ("12/16/" + "2005"), and all other wrapped lines are joined with one space.
+_SOFT_HYPHEN_BREAK = re.compile(r"[a-z]-$")
+
+
+def _join_wrapped(prev: str, nxt: str) -> str:
+    if _SOFT_HYPHEN_BREAK.search(prev) and nxt[:1].islower():
+        return prev[:-1] + nxt
+    if prev.endswith(("-", "/")) and not prev.endswith(" -"):
+        return prev + nxt
+    return prev + " " + nxt
+
+
+def _chars_text(chars: list[dict]) -> str:
+    """Text of one table cell from its characters: visual lines top to bottom, characters left to right.
+    Word breaks come from the PDF's own space glyphs (or a visible gap), not from pdfplumber's word
+    grouping -- which glues neighbouring cells together ("VariableReplaced,") and letter-spaces some
+    cells ("R e p e a le d")."""
+    glyphs = sorted(chars, key=lambda c: (c["top"], c["x0"]))
+    lines: list[list[dict]] = []
+    for c in glyphs:
+        if lines and abs(c["top"] - lines[-1][0]["top"]) <= 2.0:
+            lines[-1].append(c)
+        else:
+            lines.append([c])
+    out = ""
+    for ln in lines:
+        text, prev, space = "", None, False
+        for c in sorted(ln, key=lambda c: c["x0"]):
+            if c["text"].isspace():
+                space = True
+                continue
+            if prev is not None and (space or c["x0"] - prev["x1"] > 1.2):
+                text += " "
+            text += c["text"]
+            prev, space = c, False
+        if text:
+            out = text if not out else _join_wrapped(out, text)
+    return re.sub(r"\s+", " ", out).strip()
+
+
+def _dedupe(vals: list[float], tol: float = 1.0) -> list[float]:
+    out: list[float] = []
+    for v in sorted(vals):
+        if not out or v - out[-1] > tol:
+            out.append(v)
+    return out
+
+
+def _felony_page_kind(page) -> str | None:
+    head = " ".join(w["text"] for w in page.extract_words() if w["top"] < 60)
+    if re.search(r"Alphabetical Felony List", head):
+        return "alphabetical"
+    if re.search(r"MCL # Felony List", head):
+        return "numerical"
+    return None
+
+
+def _felony_page(page, pno: int, listed_in: str | None, structural: list[str]
+                 ) -> tuple[list[FelonyRow], str | None]:
+    """Parse one felony-list page. Returns its rows and the group label in force at the page end."""
+    chars = [c for c in page.chars if c.get("upright", True)]
+    words = page.extract_words(keep_blank_chars=False, use_text_flow=False)
+    width = float(page.width)
+
+    hlines = [ln for ln in page.lines if abs(ln["top"] - ln["bottom"]) < 1.0
+              and ln["x1"] - ln["x0"] > 0.8 * (width - 60)]
+    ys = _dedupe([(ln["top"] + ln["bottom"]) / 2 for ln in hlines])
+    vlines = [ln for ln in page.lines if abs(ln["x0"] - ln["x1"]) < 1.0 and ln["bottom"] - ln["top"] > 5]
+
+    hdr = [w for w in words if w["text"] in ("Category", "Class", "Description*")]
+    if len(hdr) != 3 or len(ys) < 3:
+        structural.append(f"felony list page {pno}: no table header / rules found")
+        return [], listed_in
+    hmid = sum((w["top"] + w["bottom"]) / 2 for w in hdr) / len(hdr)
+    hi = next((i for i in range(len(ys) - 1) if ys[i] <= hmid <= ys[i + 1]), None)
+    if hi is None:
+        structural.append(f"felony list page {pno}: header words not inside a ruled row")
+        return [], listed_in
+    h_top, h_bot = ys[hi], ys[hi + 1]
+    xs = _dedupe([ln["x0"] for ln in vlines if ln["top"] <= h_top + 1 and ln["bottom"] >= h_bot - 1])
+
+    # columns: the ruled intervals holding each header word, which must be six consecutive intervals; a
+    # seventh interval to their left (numerical list only) holds the group labels
+    col_idx: dict[str, int] = {}
+    for name, needle in _FELONY_HEADER_WORDS.items():
+        hw = [w for w in words if w["text"] == needle and h_top <= (w["top"] + w["bottom"]) / 2 <= h_bot]
+        idx = {j for w in hw for j in range(len(xs) - 1) if xs[j] - 1 <= w["x0"] and w["x1"] <= xs[j + 1] + 1}
+        if len(hw) != 1 or len(idx) != 1:
+            structural.append(f"felony list page {pno}: header word {needle!r} not inside one ruled column")
+            return [], listed_in
+        col_idx[name] = idx.pop()
+    j0 = col_idx["cite"]
+    if [col_idx[n] for n in _FELONY_COLS] != list(range(j0, j0 + 6)) or j0 > 1 or len(xs) != j0 + 7:
+        structural.append(f"felony list page {pno}: unexpected column layout {col_idx} with rules "
+                          f"{[round(x, 1) for x in xs]}")
+        return [], listed_in
+    bounds = {name: (xs[j0 + k], xs[j0 + k + 1]) for k, name in enumerate(_FELONY_COLS)}
+    label_col = (xs[0], xs[1]) if j0 == 1 else None
+    table_left, table_right = xs[0], xs[-1]
+    # The last row's bottom rule is sometimes drawn only across the group-label column (p.144 in 2026);
+    # the column rules still run to the table's bottom edge, so that edge closes the last row.
+    t_bottom = max(ln["bottom"] for ln in vlines if table_left - 1 <= ln["x0"] <= table_right + 1)
+    if t_bottom > ys[-1] + 5:
+        ys.append(t_bottom)
+
+    fills = [r for r in page.rects if _is_gray_fill(r, 0.8, 0.95)]
+    bars = [r for r in page.rects if _is_gray_fill(r, 0.3, 0.7)]
+
+    in_box = [c for c in chars if not c["text"].isspace()
+              and table_left - 1 <= (c["x0"] + c["x1"]) / 2 <= table_right + 1
+              and h_bot < (c["top"] + c["bottom"]) / 2 < ys[-1]]
+    rows: list[FelonyRow] = []
+    used: set[int] = set()
+    for i in range(hi + 1, len(ys) - 1):
+        top, bot = ys[i], ys[i + 1]
+        mid = (top + bot) / 2
+        row_chars = [c for c in chars if top < (c["top"] + c["bottom"]) / 2 < bot
+                     and table_left - 1 <= (c["x0"] + c["x1"]) / 2 <= table_right + 1]
+        used.update(id(c) for c in row_chars)
+        is_bar = any(r["top"] <= mid <= r["bottom"] and r["x0"] <= table_left + 1 for r in bars)
+        if is_bar:
+            # the label sits in the narrow left column but may overflow it ("MCL 777.16aa")
+            text = _chars_text(row_chars)
+            if label_col is None or not _GROUP_LABEL.match(text):
+                structural.append(f"felony list page {pno}: unexpected shaded bar at y={mid:.0f}: {text!r}")
+                continue
+            listed_in = text
+            continue
+        cell: dict[str, list[dict]] = {name: [] for name in _FELONY_COLS}
+        label: list[dict] = []
+        for c in row_chars:
+            cx = (c["x0"] + c["x1"]) / 2
+            if label_col is not None and cx < label_col[1]:
+                label.append(c)
+                continue
+            for name, (x0, x1) in bounds.items():
+                if x0 <= cx <= x1:
+                    cell[name].append(c)
+                    break
+        texts = {name: _chars_text(cs) for name, cs in cell.items()}
+        if _chars_text(label):
+            structural.append(f"felony list page {pno}: text {_chars_text(label)!r} in the group-label column "
+                              f"outside a group bar at y={mid:.0f}")
+            continue
+        if not any(texts.values()):
+            structural.append(f"felony list page {pno}: empty table row at y={mid:.0f}")
+            continue
+        ctx = f"felony list page {pno}, {texts['cite'] or '(no cite)'}"
+        m = _FELONY_CITE.match(texts["cite"])
+        canon = normalize_citation(m.group(1)) if m else None
+        if m is None or canon is None or canon.source != "mcl":
+            structural.append(f"{ctx}: unparseable MCL citation {texts['cite']!r}")
+            continue
+        if not texts["class"]:
+            structural.append(f"{ctx}: row has no class")
+            continue
+        if not texts["category"]:
+            structural.append(f"{ctx}: row has no category")
+            continue
+        c0, c1 = bounds["cite"]
+        in_row = [r for r in fills if r["top"] <= mid <= r["bottom"]]
+        on_cite = any(r["x0"] <= c0 + 2 and r["x1"] >= c1 - 2 for r in in_row)
+        if in_row and not on_cite:
+            structural.append(f"{ctx}: light-gray fill in the row but not behind the MCL cell")
+        if on_cite:
+            covered = sum(min(r["x1"], table_right) - max(r["x0"], c0) for r in in_row if r["x1"] > c0)
+            if covered < 0.95 * (table_right - c0):
+                structural.append(f"{ctx}: shading covers only part of the row")
+        if label_col is not None and listed_in is None:
+            structural.append(f"{ctx}: row before any 'MCL 777.1x' group bar")
+        rows.append(FelonyRow(
+            raw_cite=texts["cite"], mcl_citation=canon.canonical,
+            listed_in=listed_in if label_col is not None else None,
+            category=texts["category"], offense_class=texts["class"], description=texts["description"],
+            stat_max=texts["stat_max"], amendments=texts["amendments"], current=not on_cite, page=pno,
+        ))
+
+    # anything printed inside the table box but in no row (e.g. astride a rule) is a parse failure
+    stray = [c for c in in_box if id(c) not in used]
+    if stray:
+        structural.append(f"felony list page {pno}: {len(stray)} characters inside the table are in no row: "
+                          f"{''.join(c['text'] for c in stray)[:40]!r}")
+    if not rows:
+        structural.append(f"felony list page {pno}: no offense rows parsed")
+    return rows, listed_in
+
+
+def _row_key(r: FelonyRow) -> tuple:
+    """What must agree between the numerical and the alphabetical list for the same offense."""
+    return (re.sub(r"\s+", "", r.raw_cite), r.category, r.offense_class, r.stat_max, r.current,
+            re.sub(r"\s+", " ", r.description))
+
+
+@dataclass
+class FelonyList:
+    rows: list[FelonyRow]  # the numerical list (the stored data)
+    alphabetical: list[FelonyRow]  # the same offenses re-sorted by description (used only to cross-check)
+    structural: list[str]  # the parse cannot be trusted (these make the source incomplete)
+    review: list[str]  # disagreements for a human to check against the PDF (rows are kept as printed)
+
+
+def parse_felony_list(pdf, pages: tuple[int, int]) -> FelonyList:
+    """Parse the felony list pages of an open pdfplumber document.
+
+    The range holds two printings of the same table: the "MCL # Felony List" (numerical, with the
+    "MCL 777.1x" group bars) and the "Alphabetical Felony List" (same rows sorted by description, no
+    group bars). The numerical list is the data; the alphabetical list is parsed the same way and every
+    row must appear in both with the same cite, category, class, stat max, description and shading.
+
+    Review notes (never resolved automatically): rows present in only one printing or differing between
+    them, and rows whose shading disagrees with the amendments column (shaded without "deleted /
+    replaced / repealed", or unshaded with one of those words)."""
+    fl = FelonyList([], [], [], [])
+    listed_in: str | None = None
+    kinds: list[str] = []
+    for pno in range(pages[0], pages[1] + 1):
+        page = pdf.pages[pno - 1]
+        kind = _felony_page_kind(page)
+        if kind is None:
+            fl.structural.append(f"felony list page {pno}: running header names neither list")
+            page.close()
+            continue
+        if kinds and kind != kinds[-1] and kind in kinds:
+            fl.structural.append(f"felony list page {pno}: {kind} list resumes after the other list")
+        kinds.append(kind)
+        got, listed_in = _felony_page(page, pno, listed_in if kind == "numerical" else None, fl.structural)
+        page.close()
+        (fl.rows if kind == "numerical" else fl.alphabetical).extend(got)
+    if not fl.rows:
+        fl.structural.append("felony list: no numerical-list rows parsed")
+    for r in fl.rows + fl.alphabetical:
+        ctx = f"felony list page {r.page}, {r.raw_cite}"
+        if r.category not in FELONY_CATEGORIES:
+            fl.structural.append(f"{ctx}: unknown category {r.category!r}")
+        if r.offense_class in FELONY_OLD_CLASSES:
+            if r.current:
+                fl.structural.append(f"{ctx}: class {r.offense_class!r} on a row that is not shaded")
+        elif r.offense_class not in FELONY_CLASSES + FELONY_OTHER_CLASSES:
+            fl.structural.append(f"{ctx}: unknown class {r.offense_class!r}")
+    if not fl.alphabetical:
+        fl.structural.append("felony list: no alphabetical-list rows parsed (no cross-check possible)")
+
+    for r in fl.rows:  # (the alphabetical printing is compared with these rows below)
+        if not r.stat_max:
+            fl.review.append(f"page {r.page}, {r.raw_cite} (class {r.offense_class}): the Stat Max cell is blank")
+        says = bool(_NOT_CURRENT_WORDS.search(r.amendments))
+        if says and r.current:
+            fl.review.append(f"page {r.page}, {r.raw_cite} (class {r.offense_class}): not shaded, but the "
+                             f"amendments column says {r.amendments!r}")
+        elif not says and not r.current:
+            fl.review.append(f"page {r.page}, {r.raw_cite} (class {r.offense_class}): shaded (not current), "
+                             f"but the amendments column says {r.amendments!r}")
+
+    num: dict[tuple, list[FelonyRow]] = {}
+    for r in fl.rows:
+        num.setdefault(_row_key(r), []).append(r)
+    alpha: dict[tuple, list[FelonyRow]] = {}
+    for r in fl.alphabetical:
+        alpha.setdefault(_row_key(r), []).append(r)
+    for key in sorted(set(num) | set(alpha), key=str):
+        a, b = num.get(key, []), alpha.get(key, [])
+        if len(a) == len(b):
+            continue
+        where = "; ".join([f"numerical p.{r.page}" for r in a] + [f"alphabetical p.{r.page}" for r in b])
+        fl.review.append(f"{(a or b)[0].raw_cite} (category {key[1]}, class {key[2]}, stat max {key[3]}, "
+                         f"{'current' if key[4] else 'shaded'}, {key[5]!r}): printed {len(a)}x in the numerical "
+                         f"list, {len(b)}x in the alphabetical list [{where}]")
+    return fl
 
 
 # --------------------------------------------------------------------------------------------------
@@ -774,6 +1123,30 @@ class _SgmSourceBase:
 
     def iter_ranges(self) -> Iterable[ParsedRange]:
         return []
+
+    def apply_extras(self, conn, report) -> None:
+        """Pipeline hook (inside the ingest transaction): replace the ``sentencing_offenses`` table
+        wholesale with this manual's felony list, stamped with this source's currency string.
+
+        If the felony list did not parse cleanly (any structural warning -- which also makes this source
+        incomplete) the table is left exactly as it was: a partial list must never replace a whole one.
+        Shading / amendments / numerical-vs-alphabetical disagreements are not failures; the rows are
+        stored as printed and each disagreement is appended to ``report.warnings`` for human review."""
+        m = self._ensure()
+        fl = m.felony
+        if fl is None or fl.structural:
+            report.warnings.append(
+                "sentencing_offenses NOT updated: the felony list did not parse cleanly; previous rows kept. "
+                + "; ".join((fl.structural if fl else ["no felony list parsed"])[:20]))
+            return
+        conn.execute("DELETE FROM sentencing_offenses")
+        conn.executemany(
+            "INSERT INTO sentencing_offenses (mcl_citation, raw_cite, listed_in, category, offense_class,"
+            " description, stat_max, amendments, current, page, edition) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            [(r.mcl_citation, r.raw_cite, r.listed_in, r.category, r.offense_class, r.description, r.stat_max,
+              r.amendments, int(r.current), r.page, self.currency) for r in fl.rows],
+        )
+        report.warnings.extend(f"SGM felony list, check against the PDF: {x}" for x in fl.review)
 
 
 class SgmFilesSource(_SgmSourceBase):

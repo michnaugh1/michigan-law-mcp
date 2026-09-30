@@ -19,7 +19,8 @@ Michigan statutes and rules, stored locally and refreshed by a scheduled job.
 
 Workflow: use get_document for a known citation (e.g. "MCL 750.83", "MCR 6.110", "MRE 404",
 "Const 1963, art 1, § 17"); use search for topics or phrases; use get_cross_references to follow
-citations; use list_changes to see what changed recently. Check data_status when freshness matters.
+citations; use list_changes to see what changed recently; use get_sentencing_class for a felony's
+sentencing guidelines class and category. Check data_status when freshness matters.
 
 Always tell the user the citation, and that the text is an unofficial copy to verify against the
 official source. get_document(as_of=...) returns the text this server observed on that date, which
@@ -125,6 +126,27 @@ def build_server(host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
         """Look up a Public Act (e.g. year 1931, number 328): title, effective date, and the
         citations it affects, when known."""
         return _read(service.lookup_public_act, year, number)
+
+    @mcp.tool()
+    def get_sentencing_class(citation: str) -> dict[str, Any]:
+        """Look up a felony's sentencing guidelines offense class and crime category by MCL citation,
+        from the felony list ("MCL # Felony List") of the current Sentencing Guidelines Manual.
+
+        citation: "MCL 750.84", "750.84", or with a subsection ("MCL 750.520b(1)(a)"). Rows are matched
+        on the whole section; a subsection you give is reported against each row (subsection_match) but
+        does not hide rows. One section often has several rows -- different subsections, and superseded
+        versions of the same subsection.
+        Each row: printed cite, category (Person, Property, CS, Pub ord, Pub saf, Pub trst), class, grid
+        (e.g. "SGM Grid E" -- the class selects the sentencing grid; null when the manual prints SPEC or
+        Variable instead of a grid class), description, statutory maximum, amendment history, PDF page.
+        current=false means the manual shades that row: the statute governing the offense described
+        there is no longer current. Current rows come first.
+        A section not in the list returns listed=false with an explanation, not an error.
+        The manual itself notes the guidelines are advisory after People v Lockridge (2015), though the
+        range must still be scored and considered. Descriptions are the manual's shorthand: always
+        verify the class against the manual page and the statute before relying on it.
+        """
+        return _read(service.get_sentencing_class, citation)
 
     @mcp.tool()
     def data_status() -> dict[str, Any]:

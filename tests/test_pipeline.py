@@ -89,3 +89,29 @@ def test_xrefs_extracted_and_public_acts(loaded):
     assert ("public_act", "1931 PA 328", False) in got
     assert ("mcr", "MCR 6.110", False) in got
     assert count(conn, "SELECT COUNT(*) FROM public_act_targets WHERE year=2026 AND number=50") == 2
+
+
+def test_apply_extras_hook_runs_inside_the_transaction(conn):
+    """A source may expose apply_extras(conn, report); it runs after the documents, in the same transaction,
+    and can add review warnings. A failure there rolls the whole run back."""
+    calls = []
+
+    class Extra(FixtureSource):
+        def apply_extras(self, c, report):
+            calls.append(count(c, "SELECT COUNT(*) FROM documents"))
+            report.warnings.append("check me")
+
+    r = run_ingest(conn, Extra(FIX / "day1"), now=DAY1)
+    assert calls == [6] and r.warnings == ["check me"]
+    assert run_ingest(conn, FixtureSource(FIX / "day1"), now=DAY2).warnings == []
+
+    class Boom(FixtureSource):
+        def apply_extras(self, c, report):
+            raise RuntimeError("extras failed")
+
+    with pytest.raises(RuntimeError):
+        run_ingest(conn, Boom(FIX / "day2"), removal_guard=0.5, now=DAY2)
+    # day 2's modification, addition and removal were all rolled back with it
+    assert count(conn, "SELECT COUNT(*) FROM versions") == 6
+    assert count(conn, "SELECT COUNT(*) FROM documents WHERE active = 1") == 6
+    assert conn.execute("SELECT status FROM runs ORDER BY id DESC LIMIT 1").fetchone()[0] == "failed"

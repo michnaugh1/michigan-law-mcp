@@ -129,6 +129,18 @@ def get_document(conn: sqlite3.Connection, citation: str, as_of: str | None = No
     forms = _variant_forms(conn, doc)
     if forms:
         base["other_forms"] = forms
+    if doc["source"] == "mcl":
+        sentencing = _sentencing_rows(conn, doc["citation"])
+        if sentencing:
+            base["sentencing"] = [
+                {k: r[k] for k in ("raw_cite", "category", "class", "grid", "description", "stat_max", "current",
+                                   "page")}
+                for r in sentencing
+            ]
+            base["sentencing_source"] = (
+                f"Sentencing Guidelines Manual felony list, {sentencing[0]['edition']}. Advisory guidelines; "
+                "call get_sentencing_class for the full rows and caveats."
+            )
     if not doc["active"]:
         base["removed_from_source_at"] = doc["removed_at"]
 
@@ -189,6 +201,118 @@ def _version_payload(conn, doc, ver) -> dict[str, Any]:
         "effective_date": ver["effective_date"],
         "provenance": _provenance(conn, doc, ver),
     }
+
+
+_GRID_CLASSES = ("M2", "A", "B", "C", "D", "E", "F", "G", "H")
+
+
+def _sgm_pdf_url(conn) -> str | None:
+    """The manual's URL, taken from any stored SGM unit (their URLs are "<pdf>#page=N")."""
+    row = conn.execute("SELECT url FROM documents WHERE source = 'sgm' AND url IS NOT NULL LIMIT 1").fetchone()
+    return row["url"].split("#", 1)[0] if row else None
+
+
+def _subsection(raw_cite: str) -> str:
+    """"(1)(a)" from "MCL 750.81(1)(a)" / "MCL 28.468(1) (c)" / "MCL 257.309(6)*"; "" for a bare section."""
+    m = re.match(r"^(?:MCL\s*)?[0-9A-Za-z]+\.[0-9A-Za-z]+(.*)$", raw_cite.strip(), re.I)
+    return re.sub(r"[\s*]", "", m.group(1)).lower() if m else ""
+
+
+def _sentencing_rows(conn: sqlite3.Connection, canonical: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT rowid, * FROM sentencing_offenses WHERE mcl_citation = ? ORDER BY current DESC, page, rowid",
+        (canonical,),
+    ).fetchall()
+    pdf = _sgm_pdf_url(conn) if rows else None
+    out = []
+    for r in rows:
+        cls = r["offense_class"]
+        grid = f"SGM Grid {cls}" if cls in _GRID_CLASSES else None
+        item: dict[str, Any] = {
+            "raw_cite": r["raw_cite"],
+            "listed_in": r["listed_in"],
+            "category": r["category"],
+            "class": cls,
+            "grid": grid,
+            "description": r["description"],
+            "stat_max": r["stat_max"],
+            "amendments": r["amendments"],
+            "current": bool(r["current"]),
+            "page": r["page"],
+            "source_url": f"{pdf}#page={r['page']}" if pdf else None,
+            "edition": r["edition"],
+        }
+        if grid is None:
+            item["grid_note"] = (
+                f"The manual prints class {cls!r} here, which is not one of the grid classes (M2, A-H), so no "
+                "single grid applies. Read the manual page and the statute it is listed under "
+                f"({r['listed_in'] or 'see the page'}) before scoring."
+            )
+        out.append(item)
+    return out
+
+
+def get_sentencing_class(conn: sqlite3.Connection, citation: str) -> dict[str, Any]:
+    """Offense class / category rows for an MCL section from the Sentencing Guidelines Manual's felony list.
+
+    Matches on the canonical section; a subsection in the input ("MCL 750.84(1)(a)") is reported against
+    each row's printed subsection but never filters rows out."""
+    c = _require_citation(citation)
+    if c.source != "mcl":
+        raise ValueError(f"{c.canonical} is not an MCL section; the felony list is indexed by MCL citation.")
+    wanted = _subsection(citation)
+    rows = _sentencing_rows(conn, c.canonical)
+    loaded = conn.execute("SELECT edition FROM sentencing_offenses LIMIT 1").fetchone()
+    last = conn.execute(
+        "SELECT finished_at FROM runs WHERE source LIKE 'sgm%' AND status = 'ok' AND source_currency = ?"
+        " ORDER BY id DESC LIMIT 1", (loaded["edition"] if loaded else None,),
+    ).fetchone()
+    result: dict[str, Any] = {
+        "citation": c.canonical,
+        "requested_subsection": wanted or None,
+        "listed": bool(rows),
+        "count": len(rows),
+    }
+    if not rows:
+        result["message"] = (
+            f"{c.canonical} is not in the sentencing guidelines felony list ({loaded['edition']}). It may not be "
+            "a guidelines offense (e.g. a misdemeanor, or a felony the guidelines do not cover), or the manual "
+            "may list it under a different section number. Check the manual itself before concluding."
+            if loaded else
+            "The sentencing guidelines felony list has not been loaded into this database (no SGM ingest yet)."
+        )
+    for r in rows:
+        sub = _subsection(r["raw_cite"])
+        if not wanted:
+            r["subsection_match"] = None
+        elif sub == wanted:
+            r["subsection_match"] = "exact"
+        elif sub.startswith(wanted):
+            r["subsection_match"] = "narrower"  # the row is a part of the requested subsection
+        elif not sub or wanted.startswith(sub):
+            r["subsection_match"] = "broader"  # the row covers the whole section / an enclosing subsection
+        else:
+            r["subsection_match"] = "other"
+    result["rows"] = rows
+    result["matched_raw_cites"] = sorted({r["raw_cite"] for r in rows})
+    if wanted:
+        result["matched_subsection_cites"] = sorted(
+            {r["raw_cite"] for r in rows if r["subsection_match"] in ("exact", "narrower", "broader")})
+    result["provenance"] = {
+        "source": "Michigan Sentencing Guidelines Manual (Michigan Judicial Institute), MCL # Felony List",
+        "edition": loaded["edition"] if loaded else None,
+        "source_url": _sgm_pdf_url(conn),
+        "last_loaded": last["finished_at"] if last else None,
+        "notice": NOTICE,
+    }
+    result["note"] = (
+        "Rows are listed current first. current=false means the manual shades the row: the statute governing "
+        "that offense description is no longer current. The class selects the sentencing grid (grid). The "
+        "manual states the guidelines are advisory after People v Lockridge, 498 Mich 358 (2015), though the "
+        "court must still score them and take the range into account. Descriptions are the manual's shorthand, "
+        "not the statute; verify against the manual page and the statute before relying on a row."
+    )
+    return result
 
 
 def _fts_query(user_query: str) -> str:

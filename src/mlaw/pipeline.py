@@ -14,7 +14,7 @@ import hashlib
 import json
 import re
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from .citations import extract_xrefs, normalize_citation
@@ -39,6 +39,7 @@ class RunReport:
     docs_modified: int = 0
     docs_removed: int = 0
     docs_restored: int = 0
+    warnings: list[str] = field(default_factory=list)  # for human review; set by a source's apply_extras
 
 
 def utcnow() -> str:
@@ -101,6 +102,11 @@ def run_ingest(
         _ingest_documents(conn, source, report, run_id, now, removal_guard)
         _ingest_public_acts(conn, source)
         _ingest_ranges(conn, source, now)
+        # Optional source hook for data that is not documents (e.g. the SGM felony list ->
+        # sentencing_offenses). Runs inside this transaction, so a failure rolls it back with the rest.
+        extra = getattr(source, "apply_extras", None)
+        if extra:
+            extra(conn, report)
         conn.execute(
             "UPDATE runs SET status='ok', finished_at=?, docs_seen=?, docs_new=?, docs_modified=?,"
             " docs_removed=?, docs_restored=?, source_currency=? WHERE id=?",

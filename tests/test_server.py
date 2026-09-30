@@ -32,8 +32,17 @@ async def test_tools_listed(server):
         names = {t.name for t in (await client.list_tools()).tools}
     assert names == {
         "get_document", "search", "get_chapter_outline", "get_cross_references",
-        "list_changes", "lookup_public_act", "data_status",
+        "list_changes", "lookup_public_act", "data_status", "get_sentencing_class",
     }
+
+
+async def test_get_sentencing_class_over_protocol(server):
+    async with create_connected_server_and_client_session(server._mcp_server) as client:
+        r = await client.call_tool("get_sentencing_class", {"citation": "MCL 750.84"})
+        assert not r.isError
+        p = payload(r)
+        assert p["citation"] == "MCL 750.84" and p["listed"] is False  # fixture DB has no SGM rows
+        assert "has not been loaded" in p["message"]
 
 
 async def test_get_document_over_protocol(server):

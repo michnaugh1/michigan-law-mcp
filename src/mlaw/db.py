@@ -147,6 +147,25 @@ CREATE TABLE IF NOT EXISTS feed_events (
 );
 CREATE INDEX IF NOT EXISTS feed_events_citation ON feed_events (citation);
 
+-- The Sentencing Guidelines Manual's felony list ("MCL # Felony List"): one row per printed offense row.
+-- Replaced wholesale on each SGM ingest (sources/sgm.py apply_extras). A section can have many rows
+-- (subsections, and superseded versions of the same subsection); current = 0 means the manual shades the
+-- row: "the statute governing the felony offense described there is no longer current".
+CREATE TABLE IF NOT EXISTS sentencing_offenses (
+    mcl_citation  TEXT NOT NULL,                      -- canonical section, e.g. 'MCL 750.81' (subsection stripped)
+    raw_cite      TEXT NOT NULL,                      -- as printed, e.g. 'MCL 168.759(13)'
+    listed_in     TEXT,                               -- group bar above the row, e.g. 'MCL 777.11b'
+    category      TEXT NOT NULL,                      -- as printed: Person | Property | CS | Pub ord | Pub saf | Pub trst | Variable
+    offense_class TEXT NOT NULL,                      -- M2 | A .. H (grid classes); also SPEC | Variable | I as printed
+    description   TEXT,
+    stat_max      TEXT,                               -- as printed: '10', 'LIFE', 'Variable', '180 days', ...
+    amendments    TEXT,                               -- "Date Offense Added/ Substantive Amendments" column
+    current       INTEGER NOT NULL,
+    page          INTEGER NOT NULL,                   -- 1-based PDF page
+    edition       TEXT NOT NULL                       -- the SGM source's currency string
+);
+CREATE INDEX IF NOT EXISTS sentencing_offenses_cite ON sentencing_offenses (mcl_citation);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5 (
     citation,
     catchline,

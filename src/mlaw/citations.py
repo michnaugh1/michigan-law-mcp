@@ -5,6 +5,8 @@ Canonical forms
     MCR 6.110                      (source "mcr")
     MRE 404                        (source "mre")
     Const 1963, art 1, § 17        (source "const")
+    M Crim JI 5.1                  (source "cji"; "CJI2d 5.1" parses as an alias)
+    SGM OV 10 / SGM PRV 1 / SGM Grid A / SGM Grid M2 / SGM Instructions Step I   (source "sgm")
     1931 PA 328                    (cross-reference kind "public_act")
 
 Subdivisions such as "(1)(a)" are dropped: documents are stored at section level.
@@ -54,6 +56,24 @@ _PA_RE = re.compile(r"\b(\d{4})\s+PA\s+(\d{1,4})\b")
 _PA_RE2 = re.compile(r"\bAct\s+(?:No\.\s+)?(\d{1,4})\s+of\s+(?:the\s+Public\s+Acts\s+of\s+)?(\d{4})\b", re.I)
 _MCR_RE = re.compile(r"\bMCR\s+(\d{1,2}\.\d{1,3}[A-Za-z]?)")
 _MRE_RE = re.compile(r"\bMRE\s+(\d{3,4})")
+# Model Criminal Jury Instructions: the source writes both "M Crim JI 5.1" and "MCrim JI 5.2".
+_CJI_NUM = r"\d{1,2}\.\d{1,3}[a-z]?"
+_CJI_PREFIX = r"M(?:\.\s*|\s+)?Crim\.?\s+JI"
+# Suffix letter matched case-insensitively and must not be followed by another letter or digit, so
+# "5.8A" is never truncated to a different instruction ("5.8").
+_CJI_RE = re.compile(rf"\b{_CJI_PREFIX}\s+(\d{{1,2}}\.\d{{1,3}}[A-Za-z]?)(?![\dA-Za-z])")
+_CJI_PARSE_RE = re.compile(rf"{_CJI_PREFIX}\s*({_CJI_NUM})(?:\(.*\))?", re.I)
+# Second-edition designation seen in instruction History text; renumbered 1:1 into M Crim JI, so it is a
+# parse-only alias. (First-edition "CJI 5:1:01" does not map 1:1 and is deliberately not recognized.)
+_CJI2D_PARSE_RE = re.compile(rf"CJI2d\s*({_CJI_NUM})(?:\(.*\))?", re.I)
+# Sentencing Guidelines Manual units. Ranges are enforced in _sgm_key so "SGM OV 21" is not a citation.
+_SGM_BODY = (
+    r"(?:OV\s*(?P<ov>\d{1,2})|PRV\s*(?P<prv>\d{1,2})|Grid\s*(?P<grid>M2|[A-H])"
+    r"|Instructions\s+Step\s+(?P<step>[IVX]+))"
+)
+_SGM_PARSE_RE = re.compile(rf"SGM\s*{_SGM_BODY}", re.I)
+_SGM_RE = re.compile(rf"\bSGM\s+{_SGM_BODY}(?![A-Za-z0-9])")  # explicit "SGM ..." only; bare "OV 10" is too ambiguous
+_SGM_STEPS = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X")
 _CONST_RE = re.compile(
     r"(?:\bConst\.?\s*1963|\b1963\s*Const\.?),?\s*"
     r"(?:art(?:icle)?\.?\s*(?P<art>[IVXivx]+|\d+)|(?P<sched>Schedule))\s*,?\s*§\s*(?P<sec>\d+[A-Za-z]?)",
@@ -84,7 +104,7 @@ class Citation:
 
 @dataclass(frozen=True)
 class XRef:
-    kind: str  # mcl | mcr | mre | const | public_act
+    kind: str  # mcl | mcr | mre | const | cji | sgm | public_act
     key: str  # canonical citation
     raw_text: str
     in_range: bool = False
@@ -113,6 +133,18 @@ def _has_real_chapter(token: str) -> bool:
     and must still be accepted -- do not tighten this to "same chapter as the first token")."""
     m = re.match(r"^(\d{1,3})", token)
     return bool(m) and int(m.group(1)) != 0
+
+
+def _sgm_key(m: re.Match) -> str | None:
+    """Canonical "SGM ..." key from an _SGM_*_RE match, or None when the number is out of range."""
+    if m.group("ov"):
+        return f"SGM OV {int(m.group('ov'))}" if 1 <= int(m.group("ov")) <= 20 else None
+    if m.group("prv"):
+        return f"SGM PRV {int(m.group('prv'))}" if 1 <= int(m.group("prv")) <= 7 else None
+    if m.group("grid"):
+        return f"SGM Grid {m.group('grid').upper()}"
+    step = m.group("step").upper()
+    return f"SGM Instructions Step {step}" if step in _SGM_STEPS else None
 
 
 def _const_key(art: str, sec: str) -> str:
@@ -165,6 +197,16 @@ def normalize_citation(text: str) -> Citation | None:
     m = _CONST_RE.fullmatch(s)
     if m:
         return Citation("const", _const_key(m.group("art") or m.group("sched"), m.group("sec")))
+
+    m = _CJI_PARSE_RE.fullmatch(s) or _CJI2D_PARSE_RE.fullmatch(s)
+    if m:
+        return Citation("cji", f"M Crim JI {m.group(1).lower()}")
+
+    m = _SGM_PARSE_RE.fullmatch(s)
+    if m:
+        key = _sgm_key(m)
+        if key:
+            return Citation("sgm", key)
 
     return None
 
@@ -244,6 +286,12 @@ def extract_xrefs(text: str, self_citation: str | None = None) -> list[XRef]:
         found.append(XRef("mcr", f"MCR {m.group(1)}", m.group(0)))
     for m in _MRE_RE.finditer(text):
         found.append(XRef("mre", f"MRE {m.group(1)}", m.group(0)))
+    for m in _CJI_RE.finditer(text):
+        found.append(XRef("cji", f"M Crim JI {m.group(1).lower()}", m.group(0)))
+    for m in _SGM_RE.finditer(text):
+        key = _sgm_key(m)
+        if key:
+            found.append(XRef("sgm", key, m.group(0)))
     for m in _CONST_RE.finditer(text):
         found.append(XRef("const", _const_key(m.group("art") or m.group("sched"), m.group("sec")), m.group(0)))
 

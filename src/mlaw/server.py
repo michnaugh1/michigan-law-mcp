@@ -62,7 +62,7 @@ def build_server(host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
     def get_document(citation: str, as_of: str | None = None) -> dict[str, Any]:
         """Get the full text of one Michigan legal provision by citation.
 
-        citation: "MCL 750.83", "MCR 6.110", "MRE 404", or "Const 1963, art 1, § 17".
+        citation: "MCL 750.83", "MCR 6.110", "MRE 404", "M Crim JI 5.1", "SGM OV 10", or "Const 1963, art 1, § 17".
         Subdivisions like (1)(a) are ignored; the whole section is returned.
         as_of: optional YYYY-MM-DD. Returns the version this server had observed by that date.
         This is observation history, not a legal effective date, and only goes back to this
@@ -80,7 +80,7 @@ def build_server(host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
     @mcp.tool()
     def search(
         query: str,
-        source: Literal["mcl", "mcr", "mre", "const"] | None = None,
+        source: Literal["mcl", "mcr", "mre", "const", "cji", "sgm"] | None = None,
         chapter: str | None = None,
         include_repealed: bool = False,
         limit: int = 10,

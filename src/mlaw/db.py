@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS runs (
 
 CREATE TABLE IF NOT EXISTS documents (
     id          INTEGER PRIMARY KEY,
-    source      TEXT NOT NULL,                        -- mcl | mcr | mre | const
+    source      TEXT NOT NULL,                        -- mcl | mcr | mre | const | cji | sgm
     citation    TEXT NOT NULL,                        -- canonical, e.g. "MCL 750.83"
     variant     TEXT NOT NULL DEFAULT '',                -- '' = ordinary node; 'amended' | 'added' | '[1]' ... = extra forms the site lists
     kind        TEXT NOT NULL DEFAULT 'section',
@@ -90,7 +90,7 @@ CREATE INDEX IF NOT EXISTS changes_at ON changes (at);
 CREATE TABLE IF NOT EXISTS xrefs (
     id               INTEGER PRIMARY KEY,
     from_document_id INTEGER NOT NULL REFERENCES documents (id),
-    to_kind          TEXT NOT NULL,                   -- mcl | mcr | mre | const | public_act
+    to_kind          TEXT NOT NULL,                   -- mcl | mcr | mre | const | cji | sgm | public_act
     to_key           TEXT NOT NULL,                   -- canonical citation
     raw_text         TEXT,
     in_range         INTEGER NOT NULL DEFAULT 0       -- cite is an endpoint of a "to"/"through" range

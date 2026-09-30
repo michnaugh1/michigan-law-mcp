@@ -10,7 +10,7 @@ from typing import Iterable, Iterator, Protocol
 class ParsedDoc:
     """One citable unit as produced by a source parser."""
 
-    source: str  # mcl | mcr | mre | const
+    source: str  # mcl | mcr | mre | const | cji | sgm
     citation: str  # canonical, e.g. "MCL 750.83"
     text: str
     catchline: str = ""

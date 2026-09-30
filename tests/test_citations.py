@@ -22,6 +22,24 @@ from mlaw.citations import (
         ("Const. 1963, Schedule, § 1", "const", "Const 1963, Schedule, § 1"),
         ("MCL 767A.1", "mcl", "MCL 767A.1"),
         ("mcl 771a.4b(2)", "mcl", "MCL 771A.4b"),
+        ("M Crim JI 5.1", "cji", "M Crim JI 5.1"),
+        ("MCrim JI 5.2", "cji", "M Crim JI 5.2"),
+        ("M. Crim. JI 5.1", "cji", "M Crim JI 5.1"),
+        ("M Crim. JI 17.2", "cji", "M Crim JI 17.2"),
+        ("m crim ji 5.8A", "cji", "M Crim JI 5.8a"),
+        ("M Crim JI 20.28a(2)", "cji", "M Crim JI 20.28a"),
+        ("CJI2d 5.1", "cji", "M Crim JI 5.1"),
+        ("SGM OV 10", "sgm", "SGM OV 10"),
+        ("sgm ov10", "sgm", "SGM OV 10"),
+        ("SGM OV 20", "sgm", "SGM OV 20"),
+        ("SGM PRV 1", "sgm", "SGM PRV 1"),
+        ("SGM PRV 7", "sgm", "SGM PRV 7"),
+        ("SGM Grid A", "sgm", "SGM Grid A"),
+        ("SGM Grid H", "sgm", "SGM Grid H"),
+        ("SGM grid m2", "sgm", "SGM Grid M2"),
+        ("SGM Instructions Step I", "sgm", "SGM Instructions Step I"),
+        ("sgm instructions step viii", "sgm", "SGM Instructions Step VIII"),
+        ("SGM Instructions Step X", "sgm", "SGM Instructions Step X"),
     ],
 )
 def test_normalize(raw, source, canon):
@@ -29,7 +47,9 @@ def test_normalize(raw, source, canon):
     assert c is not None and (c.source, c.canonical) == (source, canon)
 
 
-@pytest.mark.parametrize("raw", ["", "hello", "MCL", "section 83", "MCL 750", "0.02", "MCL 0.02"])
+@pytest.mark.parametrize("raw", ["", "hello", "MCL", "section 83", "MCL 750", "0.02", "MCL 0.02",
+                                 "CJI 5:1:01", "JI 5.1", "Crim 5.1", "OV 10", "SGM OV 21", "SGM OV 0", "SGM PRV 8",
+                                 "SGM Grid I", "Grid A", "SGM Instructions Step XI"])
 def test_normalize_rejects(raw):
     assert normalize_citation(raw) is None
 
@@ -86,6 +106,18 @@ def test_xrefs_rules_and_constitution_and_self_excluded():
     text = "MCR 6.110 and MRE 404(b); Const 1963, art 1, § 17; MCL 750.83"
     got = keys(extract_xrefs(text, self_citation="MCL 750.83"))
     assert got == {("mcr", "MCR 6.110", False), ("mre", "MRE 404", False), ("const", "Const 1963, art 1, § 17", False)}
+
+
+def test_xrefs_cji_and_sgm():
+    text = ("Under MCL 750.83 and MRE 609, see MCrim JI 5.1 (formerly CJI2d 5.2), SGM OV 10, "
+            "M Crim JI 20.28a, and OV 13 or PRV 1 generally; SGM OV 21 does not exist.")
+    assert keys(extract_xrefs(text)) == {
+        ("mcl", "MCL 750.83", False), ("mre", "MRE 609", False),
+        ("cji", "M Crim JI 5.1", False), ("cji", "M Crim JI 20.28a", False),
+        ("sgm", "SGM OV 10", False),
+    }
+    x = [x for x in extract_xrefs("MCrim JI 5.1") if x.kind == "cji"][0]
+    assert x.raw_text == "MCrim JI 5.1"
 
 
 def test_xrefs_no_false_positives():
@@ -213,3 +245,14 @@ def test_narrative_ranges_former_mcl_compilers_notes():
 
     # a "Former MCL" mention that never says repealed/expired is left alone, not guessed at
     assert extract_narrative_ranges("", "Former MCL 750.1 was renumbered as MCL 750.2.") == []
+
+
+def test_cji_xref_suffix_is_lowercased_like_parse():
+    got = {(x.kind, x.key) for x in extract_xrefs("See MCrim JI 5.8A.")}
+    assert got == {("cji", "M Crim JI 5.8a")}
+
+
+def test_cji_xref_never_truncates_to_another_instruction():
+    got = {(x.kind, x.key) for x in extract_xrefs("MCrim JI 5.8b; M Crim JI 20.28a, and M Crim JI 5.1.")}
+    assert got == {("cji", "M Crim JI 5.8b"), ("cji", "M Crim JI 20.28a"), ("cji", "M Crim JI 5.1")}
+    assert extract_xrefs("M Crim JI 5.8ab") == []

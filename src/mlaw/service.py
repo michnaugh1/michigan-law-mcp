@@ -34,7 +34,7 @@ def _require_citation(text: str):
     if c is None:
         raise ValueError(
             f"Could not recognize {text!r} as a citation. Examples: 'MCL 750.83', 'MCR 6.110', "
-            "'MRE 404', 'Const 1963, art 1, § 17'."
+            "'MRE 404', 'M Crim JI 5.1', 'SGM OV 10', 'Const 1963, art 1, § 17'."
         )
     return c
 
@@ -436,7 +436,7 @@ def data_status(conn: sqlite3.Connection) -> dict[str, Any]:
         ).fetchone()
         # Filter by the *crawler's* source (runs.source, e.g. "mcl") via each document's current version's
         # own run, not by documents.source directly -- those are different namespaces. documents.source is
-        # the document's own kind (mcl | mcr | mre | const, ParsedDoc.source), and one crawler run can
+        # the document's own kind (mcl | mcr | mre | const | cji | sgm, ParsedDoc.source), and one crawler run can
         # legitimately produce more than one kind: MclXmlWebSource/MclXmlFilesSource (name="mcl") emit both
         # "mcl" and "const" documents in the same run (Chapter 1.xml sits in the same crawl as every other
         # chapter -- see pipeline.py's Source.source_kinds). The original `WHERE source = ?` filtered

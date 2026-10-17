@@ -58,16 +58,20 @@ def content_hash(doc: ParsedDoc) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _fts_replace(conn: sqlite3.Connection, doc_id: int, citation: str, catchline: str, text: str) -> None:
-    conn.execute("DELETE FROM fts WHERE doc_id = ?", (doc_id,))
+def _fts_replace(conn: sqlite3.Connection, doc_id: int, citation: str, catchline: str, text: str,
+                 notes: str | None = None) -> None:
+    _fts_delete(conn, doc_id)
     conn.execute(
         "INSERT INTO fts (citation, catchline, text, doc_id) VALUES (?, ?, ?, ?)",
         (citation, catchline or "", text, doc_id),
     )
+    if notes:
+        conn.execute("INSERT INTO fts_notes (notes, doc_id) VALUES (?, ?)", (notes, doc_id))
 
 
 def _fts_delete(conn: sqlite3.Connection, doc_id: int) -> None:
     conn.execute("DELETE FROM fts WHERE doc_id = ?", (doc_id,))
+    conn.execute("DELETE FROM fts_notes WHERE doc_id = ?", (doc_id,))
 
 
 def _replace_xrefs(conn: sqlite3.Connection, doc_id: int, citation: str, text: str, history: str) -> None:
@@ -182,7 +186,7 @@ def _ingest_documents(conn, source, report: RunReport, run_id: int, now: str, re
             conn.execute("UPDATE versions SET last_seen=? WHERE id=?", (now, cur["id"]))
             if not was_active:
                 if not is_variant:
-                    _fts_replace(conn, doc_id, doc.citation, doc.catchline, doc.text)
+                    _fts_replace(conn, doc_id, doc.citation, doc.catchline, doc.text, doc.compilers_notes)
                 conn.execute(
                     "INSERT INTO changes (run_id, document_id, version_id, change_type, at) VALUES (?,?,?,?,?)",
                     (run_id, doc_id, cur["id"], "restored", now),
@@ -200,7 +204,7 @@ def _ingest_documents(conn, source, report: RunReport, run_id: int, now: str, re
              h, now, now, run_id),
         ).lastrowid
         if not is_variant:  # extra forms (e.g. text not yet in force) are never searchable as if they were the law
-            _fts_replace(conn, doc_id, doc.citation, doc.catchline, doc.text)
+            _fts_replace(conn, doc_id, doc.citation, doc.catchline, doc.text, doc.compilers_notes)
             _replace_xrefs(conn, doc_id, doc.citation, doc.text, f"{doc.history_note}\n{doc.compilers_notes}")
 
         if is_new_doc or cur is None:

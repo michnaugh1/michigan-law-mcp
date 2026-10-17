@@ -237,12 +237,46 @@ the new AIA URL. Both `deploy/*.service` units set `MLAW_CA_BUNDLE=/etc/mlaw/ca-
 -- a Linux deploy must build that file once (steps above) before the first run; `MLAW_USE_SYSTEM_TRUST=1` is
 left in place too as a harmless no-op fallback (macOS deployments still get real benefit from it).
 
+## Court sources (MCR, MRE, M Crim JI, Sentencing Guidelines)
+
+| Source kind | `documents.source` | Citations | Input |
+| --- | --- | --- | --- |
+| `mcr-files` / `mcr-web` | `mcr` | `MCR 6.110` | the Court Rules RoboHelp directory (`toc.new.js` + chapter `.htm` files) |
+| `mre-files` / `mre-web` | `mre` | `MRE 404` | the Michigan Rules of Evidence PDF |
+| `cji-files` | `cji` | `M Crim JI 17.25` | the Model Criminal Jury Instructions PDF |
+| `sgm-files` / `sgm-web` | `sgm` | `SGM OV 13`, `SGM PRV 1`, `SGM Grid E`, `SGM Instructions Step II` | the Sentencing Guidelines Manual PDF; also fills `sentencing_offenses` (the felony list) for `get_sentencing_class` |
+
+**courts.michigan.gov's robots.txt is `User-agent: * / Disallow: /`** (re-checked 2026-10-17). The `*-web` sources
+exist for if and when the Court permits automated access (`docs/msc-inquiry.md`); until then they fail closed with
+`RobotsDisallowed` and store nothing. Load the court sources from copies saved by hand in a browser:
+
+```bash
+mlaw ingest --source mcr-files --path /path/to/mcr          # directory with toc.new.js and Court_Rules_Chapter_N.htm
+mlaw ingest --source mre-files --path michigan-rules-of-evidence.pdf
+mlaw ingest --source cji-files --path criminal-jury-instructions.pdf
+mlaw ingest --source sgm-files --path sgm.pdf
+```
+
+Re-run the matching line when the Court posts a new edition; unchanged units only get their `last_seen` bumped. Each
+source's currency stamp (e.g. "M Crim JI updated August 31, 2026") is in `data_status` and every document's provenance.
+Requirements: poppler's `pdftotext` (`apt install poppler-utils`) and `pdfplumber` (a package dependency).
+
+Notes are searchable: `search` falls back to a document's notes (`fts_notes`: an instruction's Use Note, Reference
+Guide and Chapter 44 statute index; MCL compiler's notes) when the text alone finds fewer than `limit` results, and
+marks those results `"matched_in": "notes"`. Most jury instructions name their statute only in the notes, so this is
+what makes `search('"750.411h"', source="cji")` find M Crim JI 17.25. A database created before `fts_notes` existed
+gets it backfilled by its next ingest.
+
+Court material carries its publisher's notice (Michigan Supreme Court for MCR / MRE / M Crim JI, Michigan Judicial
+Institute for the SGM) instead of the Legislature's. The wording is the spec's draft; have counsel confirm it.
+
 ## Tools
 
 | Tool | Purpose |
 | --- | --- |
-| `get_document` | Full text by citation (`MCL 750.83`, `MCR 6.110`, `MRE 404`, `Const 1963, art 1, § 17`); optional `as_of` date |
-| `search` | Full-text (stemmed, phrases, AND/OR/NOT) with source / chapter filters |
+| `get_document` | Full text by citation (`MCL 750.83`, `MCR 6.110`, `MRE 404`, `M Crim JI 17.25`, `SGM OV 13`, `Const 1963, art 1, § 17`); optional `as_of` date |
+| `search` | Full-text (stemmed, phrases, AND/OR/NOT) with source (`mcl`, `const`, `mcr`, `mre`, `cji`, `sgm`) / chapter filters; notes matches follow text matches |
+| `get_sentencing_class` | Sentencing Guidelines felony-list rows for an MCL section: category, class, grid, statutory maximum, current |
 | `get_chapter_outline` | Sections in a chapter, citation order, paged |
 | `get_cross_references` | What a provision cites, and what cites it |
 | `list_changes` | Added / modified / removed since a date |

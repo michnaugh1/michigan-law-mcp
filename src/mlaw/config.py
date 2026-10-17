@@ -14,6 +14,30 @@ NOTICE = (
     "for filings."
 )
 
+# Court-published material (spec 2026-09-29: "Wording to confirm"). M Crim JI, MCR and MRE are published by
+# the Michigan Supreme Court; the Sentencing Guidelines Manual by the Michigan Judicial Institute.
+NOTICE_MSC = (
+    "Unofficial copy of material published by the Michigan Supreme Court; verify against the official source "
+    "before relying on it, especially for filings."
+)
+NOTICE_MJI = (
+    "Unofficial copy of material published by the Michigan Judicial Institute; verify against the official "
+    "source before relying on it, especially for filings."
+)
+_NOTICES = {"mcr": NOTICE_MSC, "mre": NOTICE_MSC, "cji": NOTICE_MSC, "sgm": NOTICE_MJI}
+
+
+def notice_for(*sources: str | None) -> str:
+    """The notice for documents of these kinds (``documents.source`` or a run's crawler name, e.g.
+    "cji-files"): one publisher's notice, or every applicable one joined when the kinds are mixed.
+    MCL, the Constitution and anything unknown get the Legislature's ``NOTICE``."""
+    seen: list[str] = []
+    for s in sources or (None,):
+        n = _NOTICES.get((s or "").lower().split("-")[0], NOTICE)
+        if n not in seen:
+            seen.append(n)
+    return " ".join(seen)
+
 USER_AGENT = os.environ.get(
     "MLAW_USER_AGENT",
     "michigan-law-mcp/0.1 (+contact: set MLAW_USER_AGENT with a real contact address)",

@@ -10,6 +10,10 @@ Design notes
   document happens at query time by joining on the canonical citation, so cites to sections
   ingested later resolve automatically and unresolved cites are never dropped.
 * ``fts`` is a standalone FTS5 table containing only the *current* text of active documents.
+* ``fts_notes`` holds the same documents' current ``compilers_notes`` (an M Crim JI's Use Note, Reference
+  Guide and statute index; MCL compiler's notes). Most instructions name their statute only there, so
+  ``search(source="cji")`` for an MCL number needs it. A separate table rather than a column on ``fts`` so
+  an existing database gains it without a schema-version change; ``init_db`` backfills it once.
 """
 
 from __future__ import annotations
@@ -173,6 +177,12 @@ CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5 (
     doc_id UNINDEXED,
     tokenize = 'porter unicode61'
 );
+
+CREATE VIRTUAL TABLE IF NOT EXISTS fts_notes USING fts5 (
+    notes,
+    doc_id UNINDEXED,
+    tokenize = 'porter unicode61'
+);
 """
 
 
@@ -205,4 +215,12 @@ def init_db(conn: sqlite3.Connection) -> None:
         "INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', ?)",
         (str(SCHEMA_VERSION),),
     )
+    if conn.execute("SELECT 1 FROM meta WHERE key = 'fts_notes_backfilled'").fetchone() is None:
+        # Databases built before fts_notes existed: index the notes of exactly the documents in fts.
+        conn.execute(
+            "INSERT INTO fts_notes (notes, doc_id) SELECT v.compilers_notes, f.doc_id FROM fts f"
+            " JOIN versions v ON v.document_id = f.doc_id AND v.is_current = 1"
+            " WHERE COALESCE(v.compilers_notes, '') != ''"
+        )
+        conn.execute("INSERT INTO meta (key, value) VALUES ('fts_notes_backfilled', '1')")
     conn.commit()

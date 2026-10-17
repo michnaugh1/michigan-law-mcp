@@ -13,7 +13,7 @@ from datetime import date
 from typing import Any
 
 from .citations import citation_sort_key, normalize_citation
-from .config import NOTICE
+from .config import NOTICE, NOTICE_MJI, notice_for
 from .history import parse_history
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -59,7 +59,7 @@ def _provenance(conn, doc, ver) -> dict[str, Any]:
         "last_confirmed": ver["last_seen"],
         "version_first_observed": ver["first_seen"],
         "source_currency": cur["source_currency"] if cur else None,
-        "notice": NOTICE,
+        "notice": notice_for(doc["source"]),
     }
 
 
@@ -170,7 +170,7 @@ def get_document(conn: sqlite3.Connection, citation: str, as_of: str | None = No
                 f"No version of {c.canonical} was observed on or before {as_of}. This database's history "
                 f"for it begins {earliest}. Use an official historical compilation for earlier text."
             ),
-            "notice": NOTICE,
+            "notice": notice_for(doc["source"]),
         }
     current = conn.execute(
         "SELECT id, first_seen FROM versions WHERE document_id = ? AND is_current = 1", (doc["id"],)
@@ -236,6 +236,7 @@ def _sentencing_rows(conn: sqlite3.Connection, canonical: str) -> list[dict[str,
             "grid": grid,
             "description": r["description"],
             "stat_max": r["stat_max"],
+            "statutory_maximum": r["stat_max"],  # same value; the name crimdef-persona-ollama reads
             "amendments": r["amendments"],
             "current": bool(r["current"]),
             "page": r["page"],
@@ -303,7 +304,7 @@ def get_sentencing_class(conn: sqlite3.Connection, citation: str) -> dict[str, A
         "edition": loaded["edition"] if loaded else None,
         "source_url": _sgm_pdf_url(conn),
         "last_loaded": last["finished_at"] if last else None,
-        "notice": NOTICE,
+        "notice": NOTICE_MJI,
     }
     result["note"] = (
         "Rows are listed current first. current=false means the manual shades the row: the statute governing "
@@ -346,33 +347,52 @@ def search(
     include_repealed: bool = False,
     limit: int = 10,
 ) -> dict[str, Any]:
+    """Ranked full-text search over current text. If that finds fewer than ``limit`` documents, matches found
+    only in a document's notes (``fts_notes``: an M Crim JI's Use Note / statute index, MCL compiler's notes)
+    follow, marked ``matched_in: "notes"``; text matches always rank first."""
     limit = max(1, min(int(limit), 50))
     match = _fts_query(query)
-    sql = (
-        "SELECT d.citation, d.source, d.chapter, d.url, v.catchline, v.status, v.last_seen,"
-        " snippet(fts, 2, '[', ']', ' … ', 24) AS snippet, bm25(fts, 10.0, 5.0, 1.0) AS score"
-        " FROM fts JOIN documents d ON d.id = fts.doc_id"
-        " JOIN versions v ON v.document_id = d.id AND v.is_current = 1"
-        " WHERE fts MATCH ? AND d.active = 1"
-    )
-    args: list[Any] = [match]
+    filters, fargs = "", []
     if source:
-        sql += " AND d.source = ?"
-        args.append(source.lower())
+        filters += " AND d.source = ?"
+        fargs.append(source.lower())
     if chapter:
-        sql += " AND d.chapter = ?"
-        args.append(str(chapter).lower().replace("chap", "").strip().upper())
+        filters += " AND d.chapter = ?"
+        fargs.append(str(chapter).lower().replace("chap", "").strip().upper())
     if not include_repealed:
-        sql += " AND v.status = 'active'"
-    sql += " ORDER BY score LIMIT ?"
-    args.append(limit)
+        filters += " AND v.status = 'active'"
+    cols = "d.id, d.citation, d.source, d.chapter, d.url, v.catchline, v.status, v.last_seen"
     try:
-        rows = conn.execute(sql, args).fetchall()
+        rows = conn.execute(
+            f"SELECT {cols}, snippet(fts, 2, '[', ']', ' … ', 24) AS snippet, bm25(fts, 10.0, 5.0, 1.0) AS score"
+            " FROM fts JOIN documents d ON d.id = fts.doc_id"
+            " JOIN versions v ON v.document_id = d.id AND v.is_current = 1"
+            f" WHERE fts MATCH ? AND d.active = 1{filters} ORDER BY score LIMIT ?",
+            [match, *fargs, limit],
+        ).fetchall()
+        found = [(r, "text") for r in rows]
+        if len(found) < limit:
+            seen = [r["id"] for r in rows]
+            try:
+                notes = conn.execute(
+                    f"SELECT {cols}, snippet(fts_notes, 0, '[', ']', ' … ', 24) AS snippet"
+                    " FROM fts_notes JOIN documents d ON d.id = fts_notes.doc_id"
+                    " JOIN versions v ON v.document_id = d.id AND v.is_current = 1"
+                    f" WHERE fts_notes MATCH ? AND d.active = 1{filters}"
+                    + (f" AND d.id NOT IN ({','.join('?' * len(seen))})" if seen else "") +
+                    " ORDER BY bm25(fts_notes) LIMIT ?",
+                    [match, *fargs, *seen, limit - len(found)],
+                ).fetchall()
+            except sqlite3.OperationalError as e:
+                if "no such table" not in str(e):  # a database not yet re-ingested since fts_notes was added
+                    raise
+                notes = []
+            found += [(r, "notes") for r in notes]
     except sqlite3.OperationalError as e:
         raise ValueError(f"Could not run that search ({e}). Try simpler terms or a quoted phrase.") from e
     return {
         "query": query,
-        "count": len(rows),
+        "count": len(found),
         "results": [
             {
                 "citation": r["citation"],
@@ -381,12 +401,13 @@ def search(
                 "catchline": r["catchline"],
                 "status": r["status"],
                 "snippet": r["snippet"],
+                "matched_in": where,
                 "source_url": r["url"],
                 "last_confirmed": r["last_seen"],
             }
-            for r in rows
+            for r, where in found
         ],
-        "notice": NOTICE,
+        "notice": notice_for(source) if source else notice_for(*dict.fromkeys(r["source"] for r, _ in found)),
     }
 
 
@@ -419,7 +440,7 @@ def get_chapter_outline(
             }
             for r in page
         ],
-        "notice": NOTICE,
+        "notice": notice_for(source),
     }
 
 
@@ -490,7 +511,7 @@ def get_cross_references(
             "simply not in this database (not yet ingested, or genuinely nonexistent -- e.g. a typo in "
             "the source text)."
         ),
-        "notice": NOTICE,
+        "notice": notice_for(c.source, *(r.get("source") or r.get("kind") for r in refs)),
     }
 
 
@@ -595,4 +616,6 @@ def data_status(conn: sqlite3.Connection) -> dict[str, Any]:
                 "last_run_error": last_any["error"] if last_any and last_any["status"] == "failed" else None,
             }
         )
-    return {"sources": sources, "notice": NOTICE}
+    for x in sources:
+        x["notice"] = notice_for(x["source"])
+    return {"sources": sources, "notice": notice_for(*(x["source"] for x in sources))}

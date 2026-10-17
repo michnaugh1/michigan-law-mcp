@@ -189,8 +189,14 @@ def main(argv: list[str] | None = None) -> int:
 
     ing = sub.add_parser("ingest", help="run one ingest into a copy of the DB, then swap it in")
     ing.add_argument("--source", required=True,
-                     help="fixture | mcl-files (saved chapter HTML) | mcl-web | mcl-xml-files (saved chapter XML) | mcl-xml-web")
-    ing.add_argument("--path", help="fixture dir, or directory of saved chapter HTML/XML; for mcl-web/mcl-xml-web an optional list of chapters, e.g. \"37 38\"")
+                     help="fixture | mcl-files (saved chapter HTML) | mcl-web | mcl-xml-files (saved chapter XML) | "
+                          "mcl-xml-web | mcr-files | mcr-web (Court Rules) | mre-files | mre-web (Rules of Evidence) | "
+                          "cji-files (M Crim JI PDF) | sgm-files | sgm-web (Sentencing Guidelines Manual). "
+                          "courts.michigan.gov's robots.txt currently disallows all crawling, so the *-web court "
+                          "sources fail closed; use the *-files sources with copies saved by hand")
+    ing.add_argument("--path", help="fixture dir, or directory of saved chapter HTML/XML; for mcl-web/mcl-xml-web an "
+                                    "optional list of chapters, e.g. \"37 38\"; for mcr-files the saved RoboHelp "
+                                    "directory; for mre-files/cji-files/sgm-files the saved PDF")
     ing.add_argument("--removal-guard", type=float, default=0.9)
     ing.set_defaults(fn=_cmd_ingest)
 

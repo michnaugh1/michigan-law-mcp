@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "michigan-law-mcp"
 version = "0.1.0"
-description = "MCP server for Michigan statutes (MCL), Constitution, court rules and Public Acts, backed by a daily-updated SQLite store"
+description = "MCP server for Michigan statutes (MCL), Constitution, court rules, rules of evidence, criminal jury instructions, sentencing guidelines and Public Acts, backed by a daily-updated SQLite store"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Michael C. Naughton" }]
@@ -31,6 +31,9 @@ dependencies = [
   # the actual fix for legislature.mi.gov's incomplete certificate chain, so this is no longer an optional
   # workaround someone might reach for; it's what real crawling against that site depends on.
   "truststore>=0.9",
+  # Sentencing Guidelines Manual (sources/sgm.py): word positions, font sizes and shaded rectangles. The PDF
+  # sources also need poppler's `pdftotext` on PATH (apt install poppler-utils).
+  "pdfplumber>=0.11",
 ]
 
 [project.optional-dependencies]

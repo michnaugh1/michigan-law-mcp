@@ -35,6 +35,10 @@ from . import courts_api
 
 CATALOG_PATH = "/rules-administrative-orders-and-jury-instructions/current-rules-and-jury-instructions/"
 CATALOG_LINK_NAME = "Michigan Rules of Evidence"
+# Where the Court publishes the PDF (catalog link, 2026-09-29). A saved copy is attributed to this, not to the
+# local file, so provenance never exposes a path on the ingesting machine.
+PDF_URL = ("https://www.courts.michigan.gov/492ca5/siteassets/rules-instructions-administrative-orders/"
+           "rules-of-evidence/michigan-rules-of-evidence.pdf")
 
 _FOOTER1 = re.compile(r"^Michigan Rules of Evidence\s{2,}\S+\s{2,}Updated with MSC order\(s\)\s*$")
 _FOOTER2 = re.compile(r"^\s+effective on (\d{1,2})/(\d{1,2})/(\d{4})\s*$")
@@ -209,10 +213,10 @@ class MreFilesSource:
     source_kinds = frozenset({"mre"})
     covered_chapters = None
 
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, url: str = PDF_URL):
         self.path = Path(path)
         self._result: MreResult | None = None
-        self.url: str = self.path.resolve().as_uri()
+        self.url: str = url
 
     def _load(self) -> MreResult:
         if self._result is None:

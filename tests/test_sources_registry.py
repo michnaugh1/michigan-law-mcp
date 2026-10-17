@@ -175,3 +175,11 @@ def test_removed_document_leaves_fts_notes(tmp_path):
     _fts_replace(conn, 7, "M Crim JI 1.1", "x", "body", "Use Note")
     _fts_delete(conn, 7)
     assert conn.execute("SELECT COUNT(*) FROM fts_notes").fetchone()[0] == 0
+
+
+def test_saved_pdf_sources_cite_the_official_url_not_the_local_file():
+    from mlaw.sources.mre import PDF_URL
+
+    s = get_source("mre-files", str(MRE_PDF))
+    assert s.url == PDF_URL and "file:" not in s.url
+    assert all(d.url.startswith("https://www.courts.michigan.gov/") for d in s.iter_documents())
